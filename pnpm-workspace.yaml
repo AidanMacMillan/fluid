@@ -2,6 +2,10 @@ packages:
   - packages/*
   - extensions/*
 
+# Fluid uses the user's local Claude Code installation.
+ignoredOptionalDependencies:
+  - '@anthropic-ai/claude-agent-sdk-*'
+
 allowBuilds:
   electron: true
   electron-winstaller: true
