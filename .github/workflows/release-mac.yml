@@ -61,6 +61,7 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @fluid/desktop test:updater
+      - run: pnpm --filter @fluid/desktop test:claude-cli
       - run: pnpm build
 
       # Build both architectures in one invocation so latest-mac.yml contains

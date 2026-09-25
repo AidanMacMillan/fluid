@@ -73,6 +73,7 @@
   const transcript = new ClaudeTranscript()
 
   let failure = $state<string | null>(null)
+  let retrying = $state(false)
   let composer = $state<HTMLTextAreaElement | null>(null)
   // The draft the tab was opened with. From then on the composer is the draft,
   // and the view state it writes back is only what the next view starts from.
@@ -180,9 +181,11 @@
       const message = raw as ClaudeToView
       switch (message.type) {
         case 'failure':
+          retrying = false
           failure = message.message
           return
         case 'snapshot':
+          retrying = false
           failure = null
           thinking = message.thinking
           transcript.apply(message.replay)
@@ -768,8 +771,19 @@
   </header>
 
   {#if failure}
-    <div class="flex min-h-0 flex-1 items-center justify-center p-8">
+    <div class="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 p-8">
       <p class="max-w-md text-center text-xs leading-relaxed text-ink-400">{failure}</p>
+      <button
+        type="button"
+        class="rounded-md glass-control px-3 py-1.5 text-xs text-ink-200 disabled:opacity-50"
+        disabled={retrying}
+        onclick={() => {
+          retrying = true
+          host.post({ type: 'attach' } satisfies ClaudeFromView)
+        }}
+      >
+        {retrying ? 'Checking…' : 'Retry'}
+      </button>
     </div>
   {:else}
     <!-- The rail is beside the scroller rather than in it: what it draws is

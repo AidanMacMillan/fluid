@@ -21,6 +21,7 @@
     "build:linux": "npm run build && electron-builder --linux",
     "test:isolation": "node test/isolation/run.mjs",
     "test:updater": "node --test test/updater.test.mjs",
+    "test:claude-cli": "node --test test/claude-cli.test.mjs",
     "icons": "electron scripts/theme-icons.mjs"
   },
   "dependencies": {
