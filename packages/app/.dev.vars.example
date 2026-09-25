@@ -1,0 +1,6 @@
+# Copy to .dev.vars for `pnpm dev` and `pnpm preview`. Never commit .dev.vars.
+# From the Slack app's Basic Information page.
+SLACK_CLIENT_ID=
+SLACK_CLIENT_SECRET=
+# Any long random string: openssl rand -base64 32
+OAUTH_SIGNING_KEY=

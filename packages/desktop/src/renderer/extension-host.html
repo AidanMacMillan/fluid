@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Extension host</title>
+    <!-- No Content-Security-Policy here: it arrives as a response header, naming
+         the one extension whose code this page may import (see
+         src/main/page-policy.ts). The page is never shown. -->
+  </head>
+  <body>
+    <script type="module" src="/src/extension-host.ts"></script>
+  </body>
+</html>

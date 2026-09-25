@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Clipboard history</title>
+    <!-- Like the launcher, the panel loads nothing from anywhere: its glyphs are
+         the icon masks the Iconify plugin inlines as `data:` URLs. What it adds
+         is `fluid-file:`, the scheme the app serves its own file store over (see
+         src/main/files.ts) — a copied picture is a file in that store, and this
+         is what lets a row point an `<img>` at it.
+
+         The absence of every other source is load-bearing rather than tidy. The
+         panel draws markup that somebody else wrote, reduced to a closed
+         allowlist first (see src/renderer/src/lib/clipboard-html.ts); this is
+         the second line behind that one. Copied HTML routinely carries tracking
+         pixels, and a panel that fetched them would report every time the user
+         glanced at their own clipboard history. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: fluid-file:"
+    />
+  </head>
+
+  <body data-panel>
+    <div id="clipboard"></div>
+    <script type="module" src="/src/clipboard.ts"></script>
+  </body>
+</html>

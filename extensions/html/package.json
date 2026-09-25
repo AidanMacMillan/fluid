@@ -1,0 +1,20 @@
+{
+  "name": "@fluid/extension-html",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "HTML files in file tabs, rendered as a browser would and read at the width you choose.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fluid/sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "@types/node": "^22.19.1"
+  }
+}

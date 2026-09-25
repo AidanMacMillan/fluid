@@ -1,0 +1,28 @@
+{
+  "name": "@fluid/app",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The web side of Fluid, on Cloudflare Workers. For now, the server half of connecting Slack.",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "pnpm build && wrangler dev",
+    "deploy": "pnpm build && wrangler deploy",
+    "typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
+  },
+  "dependencies": {
+    "@fluid/extension-slack": "workspace:*"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260925.1",
+    "@sveltejs/adapter-cloudflare": "^7.2.9",
+    "@sveltejs/kit": "^2.70.3",
+    "@sveltejs/vite-plugin-svelte": "^6.2.4",
+    "svelte": "^5.57.0",
+    "svelte-check": "^4.7.6",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.6",
+    "wrangler": "^4.140.0"
+  }
+}

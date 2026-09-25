@@ -1,0 +1,10 @@
+packages:
+  - packages/*
+  - extensions/*
+
+onlyBuiltDependencies:
+  - node-pty
+  - electron
+  - electron-winstaller
+  - esbuild
+  - workerd

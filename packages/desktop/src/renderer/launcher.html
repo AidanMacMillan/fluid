@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>New tab</title>
+    <!-- The launcher loads nothing from anywhere: its images are the icon masks
+         the Iconify plugin inlines as `data:` URLs, and the bookmarks' favicons,
+         which the build inlines the same way (see `assetsInlineLimit` in
+         electron.vite.config.ts). -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
+    />
+  </head>
+
+  <body data-panel>
+    <div id="launcher"></div>
+    <script type="module" src="/src/launcher.ts"></script>
+  </body>
+</html>

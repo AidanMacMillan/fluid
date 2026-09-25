@@ -1,0 +1,261 @@
+/* Every colour the app's chrome is drawn in, and the themes that redraw it.
+
+   A theme is a `data-theme` attribute and a block below that sets the
+   `--theme-*` tokens under it. The preload stamps the chosen one on the root
+   before the page paints (see src/main/theme.ts); the theme picker in settings
+   stamps each one on its own card, which is how a card previews its theme in
+   that theme's real colours rather than in a copy of them. Nothing else in the
+   app names a chrome colour directly: components draw in `ink-*`, and the
+   utilities in main.css and in the SDK's theme.css in the other tokens, so a
+   new theme is one more block here and one more entry in
+   src/renderer/src/lib/themes.ts. The tokens' names as Tailwind colours are
+   in the SDK's theme.css, which installed extensions build against.
+
+   What is deliberately left out is every colour that means something rather
+   than decorating: a profile's colour, a task's colour, the activity dot on a
+   tab, an integration's connected light, errors in red and warnings in amber.
+   Those are information, and a theme that recoloured them would be changing
+   what they say. They stay on Tailwind's own palette, and so do the static
+   white and black overlays that edge a card or shade the glass: they are light
+   and shadow over whatever ground a theme lays down, not colours of their own.
+   A control answering the pointer is different — hovered, pressed, lit — and
+   that tint is `glow`, so a hovered row sits in the same family as a selected
+   one. */
+
+/* The default theme — and whatever the root is told that this file does not
+   know, which is why it answers to `:root` as well as to its own name. */
+:root,
+[data-theme='default'] {
+  /* The neutral ramp: text, icons, the odd solid control. Tailwind's zinc. */
+  --theme-ink-50: oklch(98.5% 0 none);
+  --theme-ink-100: oklch(96.7% 0.001 286.375);
+  --theme-ink-200: oklch(92% 0.004 286.32);
+  --theme-ink-300: oklch(87.1% 0.006 286.286);
+  --theme-ink-400: oklch(70.5% 0.015 286.067);
+  --theme-ink-500: oklch(55.2% 0.016 285.938);
+  --theme-ink-600: oklch(44.2% 0.017 285.786);
+  --theme-ink-700: oklch(37% 0.013 285.805);
+  --theme-ink-800: oklch(27.4% 0.006 286.033);
+  --theme-ink-900: oklch(21% 0.006 285.885);
+  --theme-ink-950: oklch(14.1% 0.005 285.823);
+
+  /* The tint the window's glass is laid with (`glass-scrim`), and the stronger
+     one panels floating over the app's own content get (`glass-popover`). */
+  --theme-scrim: oklch(27.4% 0.006 286.033 / 75%);
+  --theme-popover: oklch(27.4% 0.006 286.033 / 94%);
+
+  /* The shade a tab's area is set into the chrome with (`glass-well`). */
+  --theme-well: oklch(0% 0 0 / 18%);
+
+  /* What is selected: the fill and the hairline a selected row or control
+     wears (`glass-control`, and a split's other panes at half strength). */
+  --theme-selected: oklch(100% 0 0 / 14%);
+  --theme-selected-edge: oklch(100% 0 0 / 10%);
+
+  /* What a control is lit with while the pointer is on it or pressing it,
+     always at a low strength (`glass-control`, `hover:bg-glow/10`). */
+  --theme-glow: oklch(100% 0 0);
+
+  /* Where a drag would land: the drop line, the pin seam, the split preview. */
+  --theme-marker: oklch(96.7% 0.001 286.375);
+
+  /* Something under way: a page loading, a file arriving. Blue is what the
+     app's loading looks like, so most themes keep it — only Spooktober and
+     Frost, which are costumes, trade it for their own colour. */
+  --theme-accent: oklch(62.3% 0.214 259.815);
+
+  /* The track of a switch that is on. Tailwind's emerald-500 at 80%. */
+  --theme-switch-on: oklch(69.6% 0.17 162.48 / 80%);
+}
+
+/* Spooktober. Pumpkin orange where something is selected or under way, ghost
+   white for text, and the glass pulled down towards black. The ramp keeps its
+   ends near white and near black and warms its middle, so muted text reads as
+   a dim orange-brown rather than as grey. */
+[data-theme='spooktober'] {
+  --theme-ink-50: oklch(98.5% 0.004 85);
+  --theme-ink-100: oklch(96.5% 0.008 80);
+  --theme-ink-200: oklch(91.5% 0.016 75);
+  --theme-ink-300: oklch(86% 0.028 70);
+  --theme-ink-400: oklch(71% 0.05 62);
+  --theme-ink-500: oklch(57% 0.058 56);
+  --theme-ink-600: oklch(46% 0.052 52);
+  --theme-ink-700: oklch(37% 0.04 50);
+  --theme-ink-800: oklch(25% 0.02 50);
+  --theme-ink-900: oklch(18% 0.012 50);
+  --theme-ink-950: oklch(12% 0.008 50);
+
+  /* Dark, but short of black: pulled much further down than the default's
+     glass, and still letting enough of the desktop through to read as glass. */
+  --theme-scrim: oklch(19% 0.014 45 / 76%);
+  --theme-popover: oklch(13% 0.01 45 / 95%);
+  --theme-well: oklch(0% 0 0 / 32%);
+
+  /* Pumpkin, but at the default's strength rather than as a highlighter: a
+     selected row is warmed, not lit, and its hairline is barely there — the
+     same weight a white selection carries in the default theme. */
+  --theme-selected: oklch(70% 0.13 50 / 15%);
+  --theme-selected-edge: oklch(70% 0.13 50 / 14%);
+
+  /* Warm rather than white, so hovering reads as a lighter step towards the
+     selection rather than as a grey one beside it. */
+  --theme-glow: oklch(84% 0.09 62);
+
+  --theme-marker: oklch(72% 0.19 50);
+  --theme-accent: oklch(72% 0.19 50);
+  --theme-switch-on: oklch(72% 0.19 50 / 85%);
+
+  & ::selection {
+    background-color: oklch(72% 0.19 50 / 40%);
+  }
+}
+
+/* Midnight. A cool, everyday dark: the glass pulled down to a blue-black, text
+   in a moonlit blue-white, and a soft violet for whatever is selected — with
+   loading left the default's blue, as an everyday theme's is. Violet because
+   it is the one hue the colours that mean something barely use — blue is the
+   activity dot, green is connected and on, amber and red are warnings and
+   errors — so nothing the theme lights can be mistaken for one. */
+[data-theme='midnight'] {
+  --theme-ink-50: oklch(98.5% 0.004 270);
+  --theme-ink-100: oklch(96.5% 0.009 270);
+  --theme-ink-200: oklch(91.5% 0.017 272);
+  --theme-ink-300: oklch(86% 0.026 274);
+  --theme-ink-400: oklch(70.5% 0.04 276);
+  --theme-ink-500: oklch(56% 0.045 278);
+  --theme-ink-600: oklch(45% 0.042 278);
+  --theme-ink-700: oklch(36% 0.034 278);
+  --theme-ink-800: oklch(25% 0.022 275);
+  --theme-ink-900: oklch(18% 0.016 272);
+  --theme-ink-950: oklch(12% 0.012 270);
+
+  /* A shade darker than the default's glass and tinted towards navy, still
+     thin enough for the desktop to come through. */
+  --theme-scrim: oklch(20% 0.022 270 / 76%);
+  --theme-popover: oklch(15% 0.02 270 / 95%);
+  --theme-well: oklch(5% 0.02 270 / 28%);
+
+  /* Violet at the same quiet weight as the other themes' selections. */
+  --theme-selected: oklch(70% 0.13 292 / 16%);
+  --theme-selected-edge: oklch(70% 0.13 292 / 15%);
+
+  /* Cool rather than white, so hovering is a step towards the selection. */
+  --theme-glow: oklch(86% 0.06 285);
+
+  --theme-marker: oklch(74% 0.15 292);
+  /* The default's blue, written out rather than inherited so the theme's card
+     shows it under any other theme too. */
+  --theme-accent: oklch(62.3% 0.214 259.815);
+  --theme-switch-on: oklch(66% 0.17 292 / 85%);
+
+  & ::selection {
+    background-color: oklch(70% 0.15 292 / 40%);
+  }
+}
+
+/* Graphite. The default with its hue taken out and its contrast turned up: the
+   glass pulled nearly to black, text a plain bright white, and selections a
+   step firmer than the default's so they hold against the darker ground. No
+   colour of its own anywhere, so the loading bar and the switches keep the
+   default's. */
+[data-theme='graphite'] {
+  --theme-ink-50: oklch(99% 0 0);
+  --theme-ink-100: oklch(97.5% 0 0);
+  --theme-ink-200: oklch(93% 0 0);
+  --theme-ink-300: oklch(88% 0 0);
+  --theme-ink-400: oklch(72% 0 0);
+  --theme-ink-500: oklch(57% 0 0);
+  --theme-ink-600: oklch(45% 0 0);
+  --theme-ink-700: oklch(36% 0 0);
+  --theme-ink-800: oklch(24% 0 0);
+  --theme-ink-900: oklch(16% 0 0);
+  --theme-ink-950: oklch(10% 0 0);
+
+  --theme-scrim: oklch(13% 0 0 / 82%);
+  --theme-popover: oklch(11% 0 0 / 96%);
+  --theme-well: oklch(0% 0 0 / 35%);
+
+  --theme-selected: oklch(100% 0 0 / 18%);
+  --theme-selected-edge: oklch(100% 0 0 / 14%);
+  --theme-glow: oklch(100% 0 0);
+
+  --theme-marker: oklch(98% 0 0);
+  --theme-accent: oklch(62.3% 0.214 259.815);
+  --theme-switch-on: oklch(69.6% 0.17 162.48 / 80%);
+}
+
+/* Frost. The winter counterpart to Spooktober: cold blue-grey glass, snow-white
+   text and icy silver selections. A seasonal theme, so the loading bar trades
+   its blue for ice — kept pale and nearly white, so it never reads as the blue
+   of the activity dot. */
+[data-theme='frost'] {
+  --theme-ink-50: oklch(99% 0.004 225);
+  --theme-ink-100: oklch(97.5% 0.008 225);
+  --theme-ink-200: oklch(93% 0.014 228);
+  --theme-ink-300: oklch(87.5% 0.02 230);
+  --theme-ink-400: oklch(73% 0.03 232);
+  --theme-ink-500: oklch(59% 0.035 234);
+  --theme-ink-600: oklch(47% 0.032 236);
+  --theme-ink-700: oklch(38% 0.026 238);
+  --theme-ink-800: oklch(27% 0.018 240);
+  --theme-ink-900: oklch(20% 0.014 240);
+  --theme-ink-950: oklch(14% 0.01 240);
+
+  /* Lighter and colder than the others' glass: frosted rather than dark. */
+  --theme-scrim: oklch(25% 0.022 238 / 72%);
+  --theme-popover: oklch(20% 0.02 238 / 94%);
+  --theme-well: oklch(10% 0.02 240 / 22%);
+
+  --theme-selected: oklch(92% 0.035 222 / 17%);
+  --theme-selected-edge: oklch(92% 0.035 222 / 18%);
+  --theme-glow: oklch(95% 0.025 220);
+
+  --theme-marker: oklch(93% 0.045 215);
+  --theme-accent: oklch(88% 0.07 212);
+  /* Darker than the ice itself, so the white knob still stands off the track. */
+  --theme-switch-on: oklch(62% 0.08 228 / 85%);
+
+  & ::selection {
+    background-color: oklch(88% 0.06 215 / 35%);
+  }
+}
+
+/* Blossom. Spring's turn, after Spooktober's autumn and Frost's winter, and
+   drawn like the trees themselves: a plain, near-neutral ground — the grey of
+   bark and an overcast sky — with the pink kept for everything that lights up.
+   Selections, hover, drag markers and switches are all blossom, and stronger
+   than the other themes' tints so the pink reads as petals rather than as a
+   wash — pale and soft rather than hot, which keeps it well clear of the red
+   that errors are drawn in. The loading bar keeps the default's blue: pink
+   everywhere else is enough, and loading reads better as the one thing that
+   does not change. */
+[data-theme='blossom'] {
+  /* Neutral, with only a breath of warmth so the pink sits on it naturally. */
+  --theme-ink-50: oklch(98.8% 0.003 350);
+  --theme-ink-100: oklch(97% 0.004 350);
+  --theme-ink-200: oklch(92.5% 0.005 350);
+  --theme-ink-300: oklch(87% 0.006 350);
+  --theme-ink-400: oklch(71% 0.008 350);
+  --theme-ink-500: oklch(56% 0.009 350);
+  --theme-ink-600: oklch(45% 0.009 350);
+  --theme-ink-700: oklch(36% 0.008 350);
+  --theme-ink-800: oklch(26% 0.006 350);
+  --theme-ink-900: oklch(19% 0.005 350);
+  --theme-ink-950: oklch(13% 0.004 350);
+
+  --theme-scrim: oklch(24% 0.005 350 / 75%);
+  --theme-popover: oklch(19% 0.005 350 / 95%);
+  --theme-well: oklch(0% 0 0 / 22%);
+
+  --theme-selected: oklch(80% 0.12 355 / 22%);
+  --theme-selected-edge: oklch(84% 0.11 355 / 30%);
+  --theme-glow: oklch(86% 0.1 355);
+
+  --theme-marker: oklch(84% 0.13 355);
+  --theme-accent: oklch(62.3% 0.214 259.815);
+  --theme-switch-on: oklch(70% 0.16 355 / 90%);
+
+  & ::selection {
+    background-color: oklch(80% 0.12 355 / 40%);
+  }
+}

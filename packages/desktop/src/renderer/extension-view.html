@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Extension</title>
+    <!-- No Content-Security-Policy here: like the main window's, it arrives as a
+         response header, naming the app's file store and the schemes of the
+         extension whose view this is (see src/main/page-policy.ts). -->
+  </head>
+
+  <!-- The whole view is the pane, as the well was the pane's box in a window.
+       A pane that has more than fits can let the page scroll, or hold itself
+       to `h-screen` and scroll boxes of its own. The page does not scroll
+       unless the view says so: the app's stylesheet sets `overflow: hidden`
+       on the root here as it does in the window, and a view that wants the
+       page to scroll sets it back on the root itself, as the Slack thread's
+       does. -->
+  <body>
+    <div id="view" class="min-h-screen"></div>
+    <script type="module" src="/src/extension-view.ts"></script>
+  </body>
+</html>

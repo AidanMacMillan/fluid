@@ -1,0 +1,31 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  // Served at https://fluid-app.<account subdomain>.workers.dev.
+  "name": "fluid-app",
+  "main": ".svelte-kit/cloudflare/_worker.js",
+  "compatibility_date": "2026-09-01",
+  "workers_dev": true,
+  "preview_urls": false,
+  "assets": {
+    "binding": "ASSETS",
+    "directory": ".svelte-kit/cloudflare"
+  },
+  // Off on purpose. Invocation logs record each request's URL, and the Slack
+  // callback's URL carries an authorization code.
+  "observability": {
+    "enabled": false
+  },
+  // No vars: SLACK_CLIENT_ID, SLACK_CLIENT_SECRET and OAUTH_SIGNING_KEY are all
+  // set with `wrangler secret put` (see the README), so which Slack app this
+  // serves is not in the repo.
+
+  // Per client IP, per route family. Generous for a person clicking Connect,
+  // tight for anything scripted.
+  "ratelimits": [
+    {
+      "name": "OAUTH_RATE_LIMIT",
+      "namespace_id": "1001",
+      "simple": { "limit": 20, "period": 60 }
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "extends": "@electron-toolkit/tsconfig/tsconfig.web.json",
+  // The preload's declarations are listed by name because the globs below drop
+  // them: a pattern that matches both index.ts and index.d.ts keeps only the
+  // .ts, and it is the .d.ts that puts `window.api` on the global.
+  "files": [
+    "src/preload/index.d.ts",
+    "src/preload/extension-view.d.ts",
+    "src/preload/extension-host.d.ts"
+  ],
+  // The main process and the preload are here because the renderer imports
+  // their types — the tab row, a launcher choice, the bridge itself — and a
+  // composite project has to list every file its program reaches. They are
+  // checked again under these settings as well as tsconfig.node.json's. The
+  // main entry and the app icon (with theme.ts, which imports it) are left out:
+  // nothing here reaches them, and they import assets the way only
+  // electron-vite's node types describe.
+  "include": [
+    "src/renderer/src/env.d.ts",
+    "src/renderer/src/**/*",
+    "src/renderer/src/**/*.svelte",
+    "src/main/**/*",
+    "src/preload/**/*"
+  ],
+  "exclude": ["src/main/index.ts", "src/main/app-icon.ts", "src/main/theme.ts"],
+  "compilerOptions": {
+    // Required of a project the root tsconfig.json references, which is what
+    // editors go by. `svelte-check` does not follow references, which is why
+    // the typecheck script points it at this file rather than the root one: the
+    // root has no files of its own, and checking it reported a clean run over a
+    // renderer file with `const x: number = 'not a number'` in it.
+    "composite": true,
+    // Composite means declarations, and the preload's would land on top of the
+    // hand-written ones above. Nothing builds this project, so nothing is ever
+    // written here; it only has to be somewhere that is not an input.
+    "declarationDir": "node_modules/.cache/tsconfig.web",
+    "verbatimModuleSyntax": true,
+    "useDefineForClassFields": true,
+    "strict": false,
+    "allowJs": true,
+    "checkJs": true,
+    "lib": ["ESNext", "DOM", "DOM.Iterable"]
+  }
+}
