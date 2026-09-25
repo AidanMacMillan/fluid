@@ -2,9 +2,17 @@ packages:
   - packages/*
   - extensions/*
 
-onlyBuiltDependencies:
-  - node-pty
-  - electron
-  - electron-winstaller
-  - esbuild
-  - workerd
+# Fluid uses the user's local Claude Code installation.
+ignoredOptionalDependencies:
+  - '@anthropic-ai/claude-agent-sdk-*'
+
+allowBuilds:
+  electron: true
+  electron-winstaller: true
+  esbuild: true
+  node-pty: true
+  workerd: true
+
+minimumReleaseAgeExclude:
+  - '@cloudflare/workers-types@5.20260925.1'
+  - wrangler@4.140.0
