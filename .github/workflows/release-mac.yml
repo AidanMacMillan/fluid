@@ -64,6 +64,27 @@ jobs:
       - run: pnpm --filter @fluid/desktop test:claude-cli
       - run: pnpm build
 
+      # The DMG and ZIP publishers can race when creating the first release.
+      # Create one draft up front so every upload uses the same release.
+      - name: Prepare draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          node <<'NODE'
+          const { execFileSync } = require('node:child_process')
+          const gh = (...args) => execFileSync('gh', args, { encoding: 'utf8' })
+          const tag = process.env.RELEASE_TAG
+          const releases = JSON.parse(gh('api', `repos/${process.env.GH_REPO}/releases`, '--paginate', '--slurp')).flat()
+          const matches = releases.filter(release => release.tag_name === tag)
+          if (matches.length > 1) throw new Error(`Multiple releases exist for ${tag}; consolidate the drafts first.`)
+          if (matches.some(release => !release.draft)) throw new Error(`Refusing to overwrite published release ${tag}.`)
+          if (matches.length === 0) {
+            gh('release', 'create', tag, '--verify-tag', '--draft', '--title', `Fluid ${tag.slice(1)}`, '--notes', 'Release notes pending verification.')
+          }
+          NODE
+
       # Build both architectures in one invocation so latest-mac.yml contains
       # both ZIPs. Separate publishers would overwrite each other's metadata.
       - name: Build, sign, notarize, and upload draft release
@@ -78,3 +99,41 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Verify draft assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          node <<'NODE'
+          const assert = require('node:assert/strict')
+          const { execFileSync } = require('node:child_process')
+          const { readFileSync, mkdtempSync } = require('node:fs')
+          const { tmpdir } = require('node:os')
+          const { join } = require('node:path')
+          const gh = (...args) => execFileSync('gh', args, { encoding: 'utf8' })
+          const tag = process.env.RELEASE_TAG
+          const releases = JSON.parse(gh('api', `repos/${process.env.GH_REPO}/releases`, '--paginate', '--slurp')).flat()
+          const matches = releases.filter(release => release.tag_name === tag)
+          assert.equal(matches.length, 1, 'Expected exactly one release for the tag')
+          const [release] = matches
+          assert(release.draft, 'Release must remain a draft for review')
+          const expected = ['latest-mac.yml']
+          for (const arch of ['arm64', 'x64']) {
+            for (const extension of ['dmg', 'zip']) {
+              const name = `Fluid-${tag.slice(1)}-${arch}.${extension}`
+              expected.push(name, `${name}.blockmap`)
+            }
+          }
+          for (const name of expected) {
+            assert(release.assets.some(asset => asset.name === name && asset.state === 'uploaded' && asset.size > 0), `Missing asset: ${name}`)
+          }
+          const directory = mkdtempSync(join(tmpdir(), 'fluid-update-'))
+          gh('release', 'download', tag, '--pattern', 'latest-mac.yml', '--dir', directory)
+          const metadata = readFileSync(join(directory, 'latest-mac.yml'), 'utf8')
+          for (const arch of ['arm64', 'x64']) {
+            assert(metadata.includes(`Fluid-${tag.slice(1)}-${arch}.zip`), `Updater metadata is missing ${arch}`)
+          }
+          console.log('Verified one draft with both Mac architectures and updater metadata.')
+          NODE
