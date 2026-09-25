@@ -71,6 +71,13 @@ for the current unauthenticated update feed to work.
 
 ## Local builds and verification
 
+Claude tabs require a separately installed Claude Code CLI. Fluid searches PATH
+and common native/Homebrew locations, requires at least the CLI version recorded
+in the SDK manifest, and shows installation/update instructions with a Retry
+button when unavailable. The SDK's JavaScript remains in Fluid, but its optional
+platform executables are excluded from installation and release packages.
+Claude Code updates independently of Fluid.
+
 `pnpm --filter @fluid/desktop build:mac` builds a DMG and updater ZIP for your
 current architecture without publishing. Local notarization remains off;
 the release workflow explicitly enables it and requires signing. An unsigned

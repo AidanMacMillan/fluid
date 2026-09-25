@@ -2,6 +2,11 @@ appId: com.aidanmacmillan.fluid
 directories:
   buildResources: build
 files:
+  - '!dist/**/*'
+  - '!out-test/**/*'
+  - '!test/**/*'
+  # Also exclude binaries left over from an earlier dependency installation.
+  - '!**/node_modules/@anthropic-ai/claude-agent-sdk-*/**/*'
   - '!**/.vscode/*'
   - '!src/*'
   - '!electron.vite.config.{js,ts,mjs,cjs}'

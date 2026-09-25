@@ -470,9 +470,8 @@ function start(
   const executable = claudeExecutable()
   const sdkOptions: Options = {
     cwd: options.cwd,
-    // The user's own `claude` when it is at least as new as the bundled one,
-    // so the model picker keeps up with releases — see ./cli.ts.
-    ...(executable ? { pathToClaudeCodeExecutable: executable } : {}),
+    // Required: Fluid never falls back to the SDK's bundled executable.
+    pathToClaudeCodeExecutable: executable,
     ...(options.model ? { model: options.model } : {}),
     ...(options.effort ? { effort: options.effort } : {}),
     permissionMode: options.permissionMode ?? CLAUDE_DEFAULT_MODE,
