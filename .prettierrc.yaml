@@ -1,0 +1,13 @@
+singleQuote: true
+semi: false
+printWidth: 100
+trailingComma: none
+# So the Tailwind plugin sorts the app's own theme colours (ink-*, marker, …) like Tailwind's.
+tailwindStylesheet: ./packages/desktop/src/renderer/src/assets/main.css
+plugins:
+  - prettier-plugin-svelte
+  - prettier-plugin-tailwindcss
+overrides:
+  - files: '*.svelte'
+    options:
+      parser: svelte

@@ -1,0 +1,26 @@
+{
+  "name": "@fluid/extension-video",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Videos in file tabs, with their own transport.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./views": "./src/views/index.svelte.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit && svelte-check --tsconfig ./tsconfig.json"
+  },
+  "dependencies": {
+    "@fluid/sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "@types/node": "^22.19.1",
+    "svelte": "^5.45.6",
+    "svelte-check": "^4.3.4"
+  },
+  "peerDependencies": {
+    "svelte": "^5.0.0"
+  }
+}

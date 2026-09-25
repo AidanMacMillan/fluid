@@ -1,0 +1,20 @@
+{
+  "name": "@fluid/extension-pdf",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "PDFs in file tabs, in Chromium's own viewer.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fluid/sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "@types/node": "^22.19.1"
+  }
+}

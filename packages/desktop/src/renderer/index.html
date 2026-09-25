@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Fluid</title>
+    <!-- No Content-Security-Policy here, deliberately: it arrives as a response
+         header, because it has to name the schemes extensions declare and a
+         meta tag is written before any are known (see src/main/page-policy.ts). -->
+  </head>
+
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

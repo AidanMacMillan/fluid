@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Projects</title>
+    <!-- Loads nothing from anywhere, as the launcher does not: the only images
+         are the icon masks the Iconify plugin inlines as `data:` URLs. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
+    />
+  </head>
+
+  <body data-panel>
+    <div id="project"></div>
+    <script type="module" src="/src/project.ts"></script>
+  </body>
+</html>

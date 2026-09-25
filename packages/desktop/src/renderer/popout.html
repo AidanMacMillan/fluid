@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Floating tab</title>
+    <!-- The bar loads nothing from anywhere: its glyphs are the icon
+         masks the Iconify plugin inlines as `data:` URLs, and the tab's own
+         icon arrives as one. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
+    />
+  </head>
+
+  <body>
+    <div id="popout"></div>
+    <script type="module" src="/src/popout.ts"></script>
+  </body>
+</html>

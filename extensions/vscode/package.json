@@ -1,0 +1,22 @@
+{
+  "name": "@fluid/extension-vscode",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Folders open in the user's own VS Code, as tabs: the real web workbench, served by their install.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./renderer": "./src/renderer/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fluid/sdk": "workspace:*",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "@types/node": "^22.19.1"
+  }
+}

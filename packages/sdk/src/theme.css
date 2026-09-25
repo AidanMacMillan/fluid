@@ -1,0 +1,140 @@
+/* The app's colours and the utilities extensions draw with, by name.
+
+   Imported by the app's own stylesheet, and by an installed extension's, which
+   is built somewhere else and would otherwise have no idea that `text-ink-500`
+   or `glass-control` means anything. Only names are here: what each token is
+   set to is the app's, per theme (see themes.css in the app), and arrives with
+   the app's stylesheet in every page an extension draws in. So a view built
+   against this file follows whichever theme the user picks, like the app does.
+
+   An extension's stylesheet takes Tailwind's theme and utilities, this file,
+   and nothing of Tailwind's base, which the app's page already has:
+
+     @import 'tailwindcss/theme.css' layer(theme);
+     @import 'tailwindcss/utilities.css' layer(utilities);
+     @import '@fluid/sdk/theme.css'; */
+
+/* The tokens as Tailwind colours, so `text-ink-500` and `bg-accent/20` work.
+   `inline` so that a class resolves the token where it is used rather than at
+   the root — which is what lets a theme apply to one element's subtree. */
+@theme inline {
+  --color-ink-50: var(--theme-ink-50);
+  --color-ink-100: var(--theme-ink-100);
+  --color-ink-200: var(--theme-ink-200);
+  --color-ink-300: var(--theme-ink-300);
+  --color-ink-400: var(--theme-ink-400);
+  --color-ink-500: var(--theme-ink-500);
+  --color-ink-600: var(--theme-ink-600);
+  --color-ink-700: var(--theme-ink-700);
+  --color-ink-800: var(--theme-ink-800);
+  --color-ink-900: var(--theme-ink-900);
+  --color-ink-950: var(--theme-ink-950);
+  --color-scrim: var(--theme-scrim);
+  --color-selected: var(--theme-selected);
+  --color-selected-edge: var(--theme-selected-edge);
+  --color-marker: var(--theme-marker);
+  --color-accent: var(--theme-accent);
+  --color-switch-on: var(--theme-switch-on);
+  --color-glow: var(--theme-glow);
+}
+
+/* The material on its own is nearly colourless: over a light desktop the
+   chrome's pale text lands on pale pixels and disappears. A thin dark scrim
+   tints the glass enough to hold text against any wallpaper while still
+   reading as translucent — Arc's trick, and the reason its chrome stays
+   legible over anything. Browser pages are native views stacked above this, so
+   the scrim never touches page content. */
+@utility glass-scrim {
+  background-color: var(--theme-scrim);
+}
+
+/* A panel that floats over the app's own content rather than over the desktop.
+   The scrim above is the window's tint and is deliberately thin — stacked on
+   itself it is nowhere near enough to read a menu against, and a transcript
+   shows straight through one. This is the same idea at panel strength: opaque
+   enough to hold its own rows, with a short blur so what is behind reads as
+   out of focus rather than as a second column of text competing with it. */
+@utility glass-popover {
+  background-color: var(--theme-popover);
+  backdrop-filter: blur(10px) saturate(130%);
+}
+
+/* With no tint behind it, text sits directly on whatever is on the desktop, so
+   it needs its own contrast. The shadow is the same trick macOS uses for text
+   over vibrancy: cheap, and it costs no opacity. */
+@utility text-on-glass {
+  text-shadow:
+    0 1px 2px --alpha(var(--color-black) / 55%),
+    0 0 1px --alpha(var(--color-black) / 35%);
+}
+
+/* A control that is invisible until it matters. Arc's move: chrome earns its
+   background by being hovered or selected, and otherwise leaves the glass
+   alone. `aria-selected`/`aria-current` drive the selected state, so the
+   markup says what it means and the styling follows. */
+@utility glass-control {
+  background-color: transparent;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease,
+    box-shadow 120ms ease;
+
+  &:hover {
+    background-color: --alpha(var(--theme-glow) / 8%);
+  }
+
+  &:active {
+    background-color: --alpha(var(--theme-glow) / 12%);
+  }
+
+  &[aria-selected='true'],
+  &[aria-current='page'] {
+    background-color: var(--theme-selected);
+    box-shadow:
+      inset 0 0 0 1px var(--theme-selected-edge),
+      0 1px 3px --alpha(var(--color-black) / 20%);
+  }
+}
+
+/* A list that accepts files dragged in from outside. There is no slot to aim
+   at — the drop adds to the list rather than landing between two rows — so the
+   whole area answers instead of the insertion line the reorder drags draw. */
+@utility drop-zone {
+  border-radius: 0.5rem;
+  transition:
+    background-color 120ms ease,
+    box-shadow 120ms ease;
+
+  &.receiving {
+    background-color: --alpha(var(--theme-glow) / 8%);
+    box-shadow: inset 0 0 0 1px --alpha(var(--theme-marker) / 45%);
+  }
+}
+
+/* The hairline under a tab view's top bar — a browser tab's address row, a
+   file tab's name row, a terminal tab's path row. Enough to tell the bar from
+   the tab's content without drawing a box around either.
+
+   An inset shadow rather than a border, so the line is laid inside the bar's
+   own last pixel row rather than on the seam it shares with the content below.
+   That seam is where a browser tab's page starts, and the page is a native
+   view positioned over the window rather than drawn in it: a line sitting on
+   the seam is a line the view is free to cover. Keeping it inside also leaves
+   the bar the whole of its height to centre its controls in, which a border
+   would take a pixel of. */
+@utility pane-bar-edge {
+  box-shadow: inset 0 -1px 0 --alpha(var(--color-white) / 10%);
+}
+
+/* A strip too narrow to give a scrollbar room. The rail beside a conversation
+   is a few ticks wide, and an overlay scrollbar drawn over it covers the very
+   marks it would be scrolling — so the strip scrolls and says nothing about it.
+   Only ever used where something else already tells you there is more: the
+   rail moves itself to follow what is on screen. */
+@utility scrollbar-none {
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
