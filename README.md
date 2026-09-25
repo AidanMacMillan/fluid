@@ -27,6 +27,9 @@ pnpm typecheck   # every package
 pnpm lint
 ```
 
+For GitHub-hosted Mac releases, signing setup, and automatic updates, see
+[the release guide](docs/releases.md).
+
 Database migrations are generated from `packages/desktop`:
 
 ```bash
