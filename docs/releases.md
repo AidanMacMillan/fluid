@@ -57,6 +57,8 @@ Check existing membership at [developer.apple.com/account](https://developer.app
    (`x64`) DMGs and ZIPs, signs and notarizes them, and uploads a **draft**
    GitHub release. Native modules are rebuilt for each target architecture.
    Missing signing secrets stop the workflow before it builds anything.
+   The workflow prepares one draft before uploading, refuses to overwrite a
+   published release, and verifies both architectures' assets and update metadata.
 4. Wait for the entire workflow to succeed. Verify that the draft contains both
    architectures' DMGs and ZIPs, their generated blockmaps, and `latest-mac.yml`
    referencing both ZIPs. Keep those assets and their names intact: ZIPs and
