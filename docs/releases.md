@@ -42,12 +42,15 @@ Check existing membership at [developer.apple.com/account](https://developer.app
 ## Publish a release
 
 1. Set `version` in `packages/desktop/package.json` to the new stable version.
-   The initial version is `1.0.0`; subsequent versions must increase.
+   The initial version is `0.1.0`; subsequent versions must increase.
+   Versions below `1.0.0` indicate early development. Keep the version free of
+   prerelease suffixes and publish it as a regular GitHub release so the
+   existing updater channel picks it up.
 2. Commit the version and release setup, push your changes, then push its tag:
 
    ```sh
-   git tag v1.0.0
-   git push origin v1.0.0
+   git tag v0.1.0
+   git push origin v0.1.0
    ```
 
 3. The **Release Mac app** workflow builds Apple Silicon (`arm64`) and Intel
