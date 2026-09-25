@@ -20,6 +20,7 @@ import { registerApplicationMenu } from './menu'
 import { registerWindowOpener, restoreNotifications } from './notifications'
 import { registerTheme } from './theme'
 import { appIcon } from './app-icon'
+import { registerAutoUpdater } from './updater'
 
 // Keep in sync with `--spacing-titlebar` in src/renderer/src/assets/main.css.
 const TITLE_BAR_HEIGHT = 40
@@ -256,6 +257,7 @@ app.whenReady().then(async () => {
   })
 
   createWindow()
+  registerAutoUpdater()
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the

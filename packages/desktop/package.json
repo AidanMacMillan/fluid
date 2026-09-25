@@ -17,9 +17,10 @@
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win",
-    "build:mac": "npm run build && electron-builder --mac",
+    "build:mac": "npm run build && electron-builder --mac --publish never",
     "build:linux": "npm run build && electron-builder --linux",
     "test:isolation": "node test/isolation/run.mjs",
+    "test:updater": "node --test test/updater.test.mjs",
     "icons": "electron scripts/theme-icons.mjs"
   },
   "dependencies": {
@@ -37,6 +38,7 @@
     "@fluid/extension-vscode": "workspace:*",
     "@fluid/sdk": "workspace:*",
     "drizzle-orm": "^0.45.2",
+    "electron-updater": "^6.8.9",
     "node-pty": "^1.1.0",
     "zod": "^4.6.5"
   },

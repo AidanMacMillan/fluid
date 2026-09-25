@@ -1,4 +1,4 @@
-import { Menu, type MenuItemConstructorOptions, type WebContents } from 'electron'
+import { app, Menu, type MenuItemConstructorOptions, type WebContents } from 'electron'
 import { is } from '@electron-toolkit/utils'
 import {
   copyAddress,
@@ -15,6 +15,7 @@ import {
 import { openLauncherWindow } from './launcher-window'
 import { openClipboardWindow } from './clipboard-window'
 import { openProjectWindow } from './project-window'
+import { checkForUpdates, UPDATE_MENU_ID } from './updater'
 
 /**
  * The application menu.
@@ -184,7 +185,28 @@ function navigationItem(
 export function registerApplicationMenu(): void {
   const template: MenuItemConstructorOptions[] = [
     ...(process.platform === 'darwin'
-      ? ([{ role: 'appMenu' }] satisfies MenuItemConstructorOptions[])
+      ? ([
+          {
+            role: 'appMenu',
+            submenu: [
+              { role: 'about' },
+              {
+                id: UPDATE_MENU_ID,
+                label: 'Check for Updates…',
+                enabled: app.isPackaged,
+                click: () => void checkForUpdates()
+              },
+              { type: 'separator' },
+              { role: 'services' },
+              { type: 'separator' },
+              { role: 'hide' },
+              { role: 'hideOthers' },
+              { role: 'unhide' },
+              { type: 'separator' },
+              { role: 'quit' }
+            ]
+          }
+        ] satisfies MenuItemConstructorOptions[])
       : []),
     {
       label: 'File',
