@@ -111,6 +111,40 @@ function recolor(svg, theme, colors) {
   return svg
 }
 
+/**
+ * dock.setIcon bypasses macOS's icon treatment. Bake a soft bevel and the two
+ * diagonal specular highlights into the runtime images so switching themes
+ * doesn't turn the tile flat. Keep build/icon.svg untreated: macOS supplies
+ * its own finish to the packaged icon. This is a static approximation, not
+ * the system's dynamic Liquid Glass rendering.
+ */
+function withHighlights(svg) {
+  return svg
+    .replace(
+      '</defs>',
+      `<linearGradient id="rim" x1="100" y1="100" x2="924" y2="924" gradientUnits="userSpaceOnUse">
+<stop stop-color="#fff" stop-opacity="0.65"/>
+<stop offset="0.23" stop-color="#fff" stop-opacity="0.08"/>
+<stop offset="0.5" stop-color="#fff" stop-opacity="0.02"/>
+<stop offset="0.77" stop-color="#fff" stop-opacity="0.08"/>
+<stop offset="1" stop-color="#fff" stop-opacity="0.45"/>
+</linearGradient>
+<linearGradient id="bevel" x1="100" y1="100" x2="924" y2="924" gradientUnits="userSpaceOnUse">
+<stop stop-color="#fff" stop-opacity="0.14"/>
+<stop offset="0.3" stop-color="#fff" stop-opacity="0"/>
+<stop offset="0.7" stop-color="#fff" stop-opacity="0"/>
+<stop offset="1" stop-color="#fff" stop-opacity="0.1"/>
+</linearGradient>
+</defs>`
+    )
+    .replace(
+      '</svg>',
+      `<rect x="104" y="104" width="816" height="816" rx="181.4" stroke="url(#bevel)" stroke-width="8"/>
+<rect x="101.5" y="101.5" width="821" height="821" rx="183.9" stroke="url(#rim)" stroke-width="3"/>
+</svg>`
+    )
+}
+
 async function render(window, svg) {
   const src = `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`
   const page = `<body style="margin:0;background:transparent"><img src="${src}" width="${SIZE}" height="${SIZE}" style="display:block"></body>`
@@ -142,11 +176,17 @@ app.whenReady().then(async () => {
   const reference = readFileSync(join(desktop, 'build/icon.svg'), 'utf8')
   mkdirSync(join(desktop, 'resources/icons'), { recursive: true })
 
-  writeFileSync(join(desktop, 'resources/icon.png'), await render(window, reference))
+  writeFileSync(
+    join(desktop, 'resources/icon.png'),
+    await render(window, withHighlights(reference))
+  )
   console.log('resources/icon.png')
   for (const [theme, colors] of Object.entries(THEMES)) {
     const out = `resources/icons/${theme}.png`
-    writeFileSync(join(desktop, out), await render(window, recolor(reference, theme, colors)))
+    writeFileSync(
+      join(desktop, out),
+      await render(window, withHighlights(recolor(reference, theme, colors)))
+    )
     console.log(out)
   }
 
