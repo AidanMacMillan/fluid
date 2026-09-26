@@ -62,6 +62,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @fluid/desktop test:updater
       - run: pnpm --filter @fluid/desktop test:claude-cli
+      - run: pnpm --filter @fluid/desktop test:terminal
       - run: pnpm build
 
       # The DMG and ZIP publishers can race when creating the first release.
