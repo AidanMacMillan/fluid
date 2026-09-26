@@ -3,6 +3,7 @@
   import ExtensionRow from './components/ExtensionRow.svelte'
   import ExtensionSettings from './components/ExtensionSettings.svelte'
   import ThemePicker from './components/ThemePicker.svelte'
+  import AdBlockingSettings from './components/AdBlockingSettings.svelte'
   import { extensions } from './lib/extensions.svelte'
 
   extensions.start()
@@ -24,7 +25,8 @@
    */
   const SECTIONS = [
     { id: 'extensions', label: 'Extensions', icon: 'icon-[ph--puzzle-piece]' },
-    { id: 'themes', label: 'Themes', icon: 'icon-[ph--palette]' }
+    { id: 'themes', label: 'Themes', icon: 'icon-[ph--palette]' },
+    { id: 'ad-blocking', label: 'Privacy', icon: 'icon-[ph--shield-check]' }
   ] as const
 
   type Section = { id: string; label: string; icon: string; extensionId?: string }
@@ -149,6 +151,8 @@
       </div>
     {:else if current.id === 'themes'}
       <ThemePicker />
+    {:else if current.id === 'ad-blocking'}
+      <AdBlockingSettings />
     {/if}
   </section>
 {/snippet}

@@ -2,6 +2,7 @@ import { protocol } from 'electron'
 import { FILE_SCHEME_PRIVILEGES } from './files'
 import { extensionSchemes } from './extensions/host'
 import { INSTALLED_SCHEME_PRIVILEGES } from './extensions/installed'
+import { ADBLOCK_SCHEME } from './adblocker'
 
 /**
  * Every scheme of the app's own, declared in one place.
@@ -21,6 +22,7 @@ export function registerAppSchemes(): void {
   protocol.registerSchemesAsPrivileged([
     FILE_SCHEME_PRIVILEGES,
     INSTALLED_SCHEME_PRIVILEGES,
+    ADBLOCK_SCHEME,
     ...extensionSchemes()
   ])
 }

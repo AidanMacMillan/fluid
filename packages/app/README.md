@@ -1,67 +1,59 @@
 # @fluid/app
 
-The web side of Fluid: a SvelteKit app deployed to Cloudflare Workers. For now it
-does one thing, which is the server half of connecting Slack. It holds the Slack
-app's client secret so the desktop app never has to.
+A SvelteKit app on Cloudflare Workers that handles Slack OAuth for the desktop.
+It holds the Slack client secret and keeps no persistent storage.
 
-## The Slack flow
+## Local development
 
-The desktop app never sees the client secret, and the browser never sees the
-token. PKCE ties each code to the machine that started the sign-in. The contract
-between the two sides lives in `extensions/slack/src/shared/oauth.ts`.
+After the [repository setup](../desktop/README.md#development), run these commands
+from `packages/app`:
 
-| Route                 | Called by       | Does                                                                                                                      |
-| --------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `GET /slack/connect`  | the browser     | Takes the desktop's PKCE challenge, state and loopback port, signs them into a ticket, and redirects to Slack.            |
-| `GET /slack/callback` | Slack           | Checks the ticket, signs a grant that binds Slack's code to the challenge, and redirects to `http://127.0.0.1:<port>`.    |
-| `POST /slack/token`   | the desktop app | Checks the grant covers this code and the verifier meets its challenge, then redeems the code and returns the user token. |
+```bash
+cp .dev.vars.example .dev.vars   # fill in the three values
+pnpm dev                         # Vite with Worker bindings
+pnpm preview                     # build and run under wrangler dev
+pnpm typecheck
+```
 
-The Worker keeps no storage. Tickets and grants are HMAC-signed, expire within
-ten minutes, and carry no secrets.
+For end-to-end sign-in, use the preview server and launch the desktop from the
+repository root with `FLUID_APP_URL=http://localhost:8787 pnpm dev`. Use the
+actual preview port if it differs, and register its `/slack/callback` URL in
+Slack's redirect URLs.
 
-## Setting up the Slack app
+## Slack app configuration
 
-In the Slack app's settings (api.slack.com/apps):
+1. Add the deployed Worker's `/slack/callback` URL under **OAuth & Permissions →
+   Redirect URLs**.
+2. Add the **User Token Scopes** listed in
+   [slack-scopes.ts](../../extensions/slack/src/main/slack-scopes.ts); leave bot scopes empty.
+3. Keep token rotation off until refresh support is implemented.
+4. Leave distribution off for an app used only by its owning workspace.
 
-1. **OAuth & Permissions → Redirect URLs**: add
-   `https://fluid-app.<account>.workers.dev/slack/callback`.
-2. **OAuth & Permissions → User Token Scopes**: add every scope in
-   `extensions/slack/src/main/slack-scopes.ts`. The Worker asks for exactly that
-   list. Leave **Bot Token Scopes** empty.
-3. Leave **token rotation** off. With it on, user tokens expire after 12 hours
-   and nothing here refreshes them yet.
-4. Leave distribution off. An undistributed app can only be installed in the
-   workspace that owns it.
+## Request flow
 
-## Deploying
+| Route                 | Responsibility                                                                                |
+| --------------------- | --------------------------------------------------------------------------------------------- |
+| `GET /slack/connect`  | Sign the desktop's PKCE challenge, state, and loopback port into a ticket; redirect to Slack. |
+| `GET /slack/callback` | Validate the ticket and redirect to the desktop's loopback listener with a signed grant.      |
+| `POST /slack/token`   | Validate the grant and PKCE verifier, then exchange the code for a user token.                |
+
+The shared contract is [oauth.ts](../../extensions/slack/src/shared/oauth.ts).
+Tickets and grants expire after ten minutes. The token returns directly to the
+desktop; it does not pass through the browser.
+
+## Deployment
+
+From this package directory:
 
 ```bash
 pnpm wrangler login
-pnpm wrangler secret put SLACK_CLIENT_ID       # from Slack's Basic Information page
-pnpm wrangler secret put SLACK_CLIENT_SECRET   # the same page
+pnpm wrangler secret put SLACK_CLIENT_ID
+pnpm wrangler secret put SLACK_CLIENT_SECRET
 openssl rand -base64 32 | pnpm wrangler secret put OAUTH_SIGNING_KEY
 pnpm deploy
 ```
 
-The client ID is public, since it is in every authorize URL, but it is set as a
-secret like the rest so that which Slack app this serves stays out of the repo.
-Secrets also outlive `wrangler deploy`, which replaces plain vars with whatever
-`wrangler.jsonc` says.
-
-Changing `OAUTH_SIGNING_KEY` only cancels sign-ins that are in flight. Tokens
-already issued are unaffected.
-
-Observability is off in `wrangler.jsonc` on purpose: invocation logs record
-request URLs, and the callback's URL carries an authorization code.
-
-## Developing
-
-```bash
-cp .dev.vars.example .dev.vars   # then fill it in
-pnpm dev                         # vite, with the Worker's bindings proxied
-pnpm preview                     # the built Worker, under wrangler dev
-```
-
-To point the desktop app at a local Worker, start it with
-`FLUID_APP_URL=http://localhost:8787`. For the sign-in to complete, Slack must
-also accept `http://localhost:8787/slack/callback` as a redirect URL.
+Set the desktop's `FLUID_APP_URL` to the deployed origin; its current default is
+a placeholder. Rotating `OAUTH_SIGNING_KEY` cancels in-flight sign-ins without
+affecting issued tokens. Keep invocation logging disabled in
+[wrangler.jsonc](wrangler.jsonc), since callback URLs contain authorization codes.
