@@ -11,6 +11,7 @@ import {
 } from 'node:fs'
 import { dirname, extname, join, resolve, sep } from 'node:path'
 import { app, type CustomScheme, type Session } from 'electron'
+import { ADBLOCK_SCHEME_NAME } from '../../shared/ad-blocking'
 import { z } from 'zod'
 import {
   MANIFEST_FILENAME,
@@ -312,7 +313,12 @@ export function scanInstalled(taken: { ids: string[]; schemes: string[] }): Scan
   const scan: Scan = { installed: [], problems: [] }
   scanned = scan
 
-  for (const scheme of [...taken.schemes, INSTALLED_SCHEME, STORED_FILE_SCHEME]) {
+  for (const scheme of [
+    ...taken.schemes,
+    INSTALLED_SCHEME,
+    STORED_FILE_SCHEME,
+    ADBLOCK_SCHEME_NAME
+  ]) {
     schemeOwners.set(scheme, '')
   }
 

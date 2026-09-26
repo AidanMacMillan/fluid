@@ -10,6 +10,8 @@ import {
   type WindowOpenHandlerResponse
 } from 'electron'
 import { attachContextMenu } from './context-menu'
+import { adBlocker } from './ad-blocking'
+import { ADBLOCK_PRELOAD } from './adblocker'
 import { fileViewer, fileViewerFor, whenContributionsChange } from './api/contributions'
 import { isIsolated, mayOpenOutside } from './api/isolation-policy'
 import {
@@ -984,7 +986,10 @@ function handleWindowOpen(
         // a popup that landed in the default session would be a sign-in screen
         // that authenticates the wrong account, and the failure would look like
         // the flow simply not working.
-        webPreferences: { partition: partitionFor(context.space, context.profile) }
+        webPreferences: {
+          partition: partitionFor(context.space, context.profile),
+          preload: ADBLOCK_PRELOAD
+        }
       }
     }
   }
@@ -1034,6 +1039,7 @@ async function returnFromMiniplayer(tabId: string): Promise<void> {
  * that reports to nobody.
  */
 function adoptPopup(tabId: string, host: BrowserWindow, popup: BrowserWindow): void {
+  if (viewKinds.get(tabId) === 'page') adBlocker.attach(popup.webContents)
   // A popup shares its opener's session and, often, its host: left on the
   // default, zooming the popup would zoom the tab that opened it too.
   popup.webContents.setZoomMode('isolated')
@@ -1223,8 +1229,8 @@ function createView(
 
   const view = new WebContentsView({
     webPreferences: {
-      // Page content is untrusted third-party web content: it gets no preload,
-      // no node, and its own process.
+      // Web pages get only the sandboxed ad-blocking preload, with no bridge
+      // exposed to page scripts, and no Node access.
       contextIsolation: true,
       sandbox: true,
       nodeIntegration: false,
@@ -1239,7 +1245,8 @@ function createView(
       partition,
       // The bridge, and the only extra an extension's page gets over any other
       // page: still sandboxed, still isolated, still no node.
-      ...(kind === 'extension' ? { preload: EXTENSION_VIEW_PRELOAD } : {})
+      ...(kind === 'extension' ? { preload: EXTENSION_VIEW_PRELOAD } : {}),
+      ...(kind === 'page' ? { preload: ADBLOCK_PRELOAD } : {})
     }
   })
 
@@ -1247,6 +1254,7 @@ function createView(
   view.setBorderRadius(CORNER_RADIUS)
 
   const { webContents } = view
+  if (kind === 'page') adBlocker.attach(webContents)
 
   // Zoom belongs to the tab, not the site. Chromium's default shares one level
   // between every page on a host in the same session, so zooming a page in one

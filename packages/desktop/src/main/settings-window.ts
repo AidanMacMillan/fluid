@@ -1,5 +1,5 @@
 import { join } from 'path'
-import { BrowserWindow, type Rectangle, type WebContents } from 'electron'
+import { BrowserWindow, shell, type Rectangle, type WebContents } from 'electron'
 import { is } from '@electron-toolkit/utils'
 
 /**
@@ -151,6 +151,15 @@ export function openSettingsWindow(parent: BrowserWindow): void {
   })
 
   settingsWindow = window
+
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:\/\//i.test(url)) {
+      void shell
+        .openExternal(url)
+        .catch((error) => console.error('Could not open settings link:', error))
+    }
+    return { action: 'deny' }
+  })
 
   // Escape closes it, as a panel should, and Cmd/Ctrl+W with it. Handled here
   // rather than in the panel so it holds wherever focus happens to be — inside
