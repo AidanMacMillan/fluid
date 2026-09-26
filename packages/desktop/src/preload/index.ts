@@ -74,6 +74,11 @@ ipcRenderer.on('theme:changed', (_e, theme: string) => applyTheme(theme))
 
 // Custom APIs for renderer
 const api = {
+  haptics: {
+    alignment: (): void => {
+      if (process.platform === 'darwin') ipcRenderer.send('haptics:alignment')
+    }
+  },
   /**
    * Projects: which body of work the app is in, and where its folder is.
    *

@@ -1,0 +1,14 @@
+{
+  "name": "@fluid/haptics",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "main": "index.cjs",
+  "types": "index.d.ts",
+  "scripts": {
+    "install": "node install.cjs"
+  },
+  "devDependencies": {
+    "node-gyp": "12.4.0"
+  }
+}

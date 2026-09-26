@@ -22,6 +22,7 @@ asarUnpack:
   # execs — neither of which can be loaded or run from inside an asar archive.
   - resources/**
   - node_modules/node-pty/**
+  - node_modules/@fluid/haptics/**
 win:
   executableName: fluid
 nsis:

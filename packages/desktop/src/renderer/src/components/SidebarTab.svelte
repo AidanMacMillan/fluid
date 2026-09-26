@@ -172,9 +172,13 @@
      against. The list runs vertically, so the pointer's y decides the slot.
      Drawn in from the edge by one step for each folder it is in; the lines
      start at the depth the drop would land at, which is how a drop into a
-     folder's last slot reads apart from one just after the folder. -->
+     folder's last slot reads apart from one just after the folder.
+     The pseudo-element covers the list's gap above this row, so a drag exactly
+     between rows hits this row's top edge instead of the section-end target. -->
 <li
-  class="group/row relative {dragging ? 'opacity-40' : ''}"
+  class="group/row relative before:absolute before:inset-x-0 before:-top-0.5 before:h-0.5 {dragging
+    ? 'opacity-40'
+    : ''}"
   style:padding-left="{row.depth * SIDEBAR_INDENT_REM}rem"
   ondragover={onDragOver}
   onpointerenter={() => {

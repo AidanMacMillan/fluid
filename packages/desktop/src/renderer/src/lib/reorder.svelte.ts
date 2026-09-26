@@ -94,6 +94,29 @@ const MIME: Record<ReorderKind, string> = {
 }
 
 class Reorder {
+  private feedbackTarget: string | null = null
+
+  /** One tick per distinct valid destination; clearing a target is silent. */
+  feedbackFor(target: string | null): void {
+    if (this.kind === null) target = null
+    if (target === this.feedbackTarget) return
+    this.feedbackTarget = target
+    if (target !== null) window.api.haptics.alignment()
+  }
+
+  private feedbackForSlot(): void {
+    const slot = this.slot
+    this.feedbackFor(
+      this.moves && slot
+        ? JSON.stringify(['sidebar', slot.section, slot.parentId, slot.index])
+        : null
+    )
+  }
+
+  private feedbackForIndex(): void {
+    this.feedbackFor(this.moves ? JSON.stringify(['strip', this.target, this.to]) : null)
+  }
+
   /** The list being dragged from, or null when no drag of ours is in flight. */
   kind = $state<ReorderKind | null>(null)
   /**
@@ -196,6 +219,7 @@ class Reorder {
     event.dataTransfer.setData(MIME[kind], id)
 
     this.kind = kind
+    this.feedbackTarget = null
     this.into = into
     this.carrying = null
     this.origin = null
@@ -253,6 +277,7 @@ class Reorder {
       this.target = null
       this.slot = null
       this.mark = null
+      this.feedbackFor(null)
       return
     }
     event.preventDefault()
@@ -260,6 +285,7 @@ class Reorder {
     this.target = slot.section
     this.slot = slot
     this.mark = mark
+    this.feedbackForSlot()
   }
 
   /**
@@ -348,6 +374,7 @@ class Reorder {
 
     this.target = kind
     this.to = past ? index + 1 : index
+    this.feedbackForIndex()
   }
 
   /**
@@ -363,6 +390,7 @@ class Reorder {
 
     this.target = kind
     this.to = length
+    this.feedbackForIndex()
   }
 
   /**
@@ -400,6 +428,9 @@ class Reorder {
     this.intoTask = taskId
     this.target = null
     this.to = -1
+    this.slot = null
+    this.mark = null
+    this.feedbackFor(JSON.stringify(['task', taskId]))
   }
 
   /** Lets a task go dark again once a tab drag has really left its box. */
@@ -408,6 +439,7 @@ class Reorder {
     const box = event.currentTarget as HTMLElement
     if (event.relatedTarget instanceof Node && box.contains(event.relatedTarget)) return
     this.intoTask = null
+    this.feedbackFor(null)
   }
 
   /**
@@ -434,6 +466,7 @@ class Reorder {
     this.to = -1
     this.slot = null
     this.mark = null
+    this.feedbackFor(null)
   }
 
   /**
@@ -470,6 +503,7 @@ class Reorder {
 
   /** Clears the drag. Also the `dragend` handler: it fires even on a cancel. */
   end(): void {
+    this.feedbackTarget = null
     this.kind = null
     this.intoTask = null
     this.into = []

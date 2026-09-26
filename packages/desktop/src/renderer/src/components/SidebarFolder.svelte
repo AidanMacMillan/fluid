@@ -148,9 +148,12 @@
 <!-- Drawn like a tab's row, at the same height and on the same column, so a
      folder reads as one more thing in the list rather than a heading over it:
      it can be dragged, dropped on, and dropped into, the way a tab can be
-     dropped next to. -->
+     dropped next to. As on SidebarTab, the pseudo-element makes the gap above
+     the row part of its drop target rather than the section-end target. -->
 <li
-  class="group/row relative {dragging ? 'opacity-40' : ''}"
+  class="group/row relative before:absolute before:inset-x-0 before:-top-0.5 before:h-0.5 {dragging
+    ? 'opacity-40'
+    : ''}"
   style:padding-left="{row.depth * SIDEBAR_INDENT_REM}rem"
   ondragover={onDragOver}
 >

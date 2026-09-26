@@ -6,12 +6,13 @@ import tailwindcss from '@tailwindcss/vite'
 
 // The workspace's own packages ship TypeScript source rather than a build, so
 // they are bundled in like the app's own modules instead of being left as
-// requires that would find a .ts file at runtime. They are whichever of the
-// app's dependencies are `workspace:` ones, so a new extension needs nothing
+// requires that would find a .ts file at runtime. The native haptics addon
+// stays external so its binary can be loaded from the packaged app. The other
+// workspace dependencies are discovered here, so a new extension needs nothing
 // here.
 const { dependencies } = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8'))
 const WORKSPACE_PACKAGES = Object.entries(dependencies as Record<string, string>)
-  .filter(([, version]) => version.startsWith('workspace:'))
+  .filter(([name, version]) => name !== '@fluid/haptics' && version.startsWith('workspace:'))
   .map(([name]) => name)
 
 export default defineConfig({
