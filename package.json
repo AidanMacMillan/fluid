@@ -1,5 +1,6 @@
 {
   "name": "fluid",
+  "license": "MIT",
   "private": true,
   "scripts": {
     "dev": "pnpm --filter @fluid/desktop dev",

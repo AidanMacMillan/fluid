@@ -56,6 +56,9 @@
   const grouped = $derived(split !== null && workspace.hoveredSplitId === split.id)
   const label = $derived(workspace.labelFor(tab))
   const loading = $derived(workspace.pages[tab.id]?.loading ?? false)
+  const audioMuted = $derived(workspace.pages[tab.id]?.audioMuted ?? false)
+  // Keep the control available after muting, even once the page falls silent.
+  const showAudio = $derived(audioMuted || (workspace.pages[tab.id]?.audible ?? false))
   /** Dimmed while it is being carried, on its own or in a folder that is. */
   const dragging = $derived(reorder.carries(tab.id, row.within))
   /** The line a drop would be let go along, when it is this row's to draw. */
@@ -253,6 +256,10 @@
     {:else}
       <span class="{tabGlyph(tab)} shrink-0 text-base" aria-hidden="true"></span>
     {/if}
+    {#if showAudio}
+      <!-- Reserve the slot for the sibling button; buttons cannot nest. -->
+      <span class="size-4 shrink-0" aria-hidden="true"></span>
+    {/if}
     <span class="truncate">{label}</span>
     {#if split}
       <!-- Nothing drawn: a row in a split says so by being lit alongside the
@@ -283,6 +290,23 @@
       </span>
     {/if}
   </button>
+
+  {#if showAudio}
+    <button
+      type="button"
+      title={audioMuted ? 'Unmute tab' : 'Mute tab'}
+      aria-label="{audioMuted ? 'Unmute' : 'Mute'} {label}"
+      onclick={() => window.api.browser.toggleAudioMuted(tab.id)}
+      class="absolute top-1/2 grid size-5 -translate-y-1/2 place-items-center rounded-md
+             glass-control text-base text-ink-400 no-drag hover:text-ink-100 focus-visible:text-ink-100"
+      style:left="calc({row.depth * SIDEBAR_INDENT_REM}rem + 1.875rem)"
+    >
+      <span
+        class={audioMuted ? 'icon-[ph--speaker-slash]' : 'icon-[ph--speaker-high]'}
+        aria-hidden="true"
+      ></span>
+    </button>
+  {/if}
 
   <!-- What closing means depends on where a pinned tab has got to. On its own
        page there is nothing to undo, so the cross does what a cross does and

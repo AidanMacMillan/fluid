@@ -1,5 +1,6 @@
 {
   "name": "@fluid/extension-video",
+  "license": "MIT",
   "version": "0.0.0",
   "private": true,
   "type": "module",
