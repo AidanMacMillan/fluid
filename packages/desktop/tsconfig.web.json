@@ -16,6 +16,7 @@
   // nothing here reaches them, and they import assets the way only
   // electron-vite's node types describe.
   "include": [
+    "src/shared/**/*",
     "src/renderer/src/env.d.ts",
     "src/renderer/src/**/*",
     "src/renderer/src/**/*.svelte",

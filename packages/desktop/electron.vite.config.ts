@@ -21,19 +21,19 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin({ exclude: WORKSPACE_PACKAGES })]
   },
   preload: {
-    plugins: [externalizeDepsPlugin({ exclude: WORKSPACE_PACKAGES })],
-    // Three preloads: the app's windows', the one bridge an extension's view
-    // gets (see src/preload/extension-view.ts), and the one an installed
-    // extension's main half gets (see src/preload/extension-host.ts). The last
-    // two run sandboxed, where `require` reaches `electron` and nothing else,
-    // so they must never share a chunk with the first — they import nothing but
-    // types from anywhere, and nothing is left for any of them to share.
+    plugins: [
+      externalizeDepsPlugin({ exclude: [...WORKSPACE_PACKAGES, '@ghostery/adblocker-content'] })
+    ],
+    // Browsing and extension preloads run sandboxed: every runtime dependency
+    // must be bundled, with no shared chunks or external require except Electron.
+    // The app window preload can use Node and stays separate.
     build: {
       rollupOptions: {
         input: {
           index: resolve(__dirname, 'src/preload/index.ts'),
           'extension-view': resolve(__dirname, 'src/preload/extension-view.ts'),
-          'extension-host': resolve(__dirname, 'src/preload/extension-host.ts')
+          'extension-host': resolve(__dirname, 'src/preload/extension-host.ts'),
+          adblocker: resolve(__dirname, 'src/preload/adblocker.ts')
         }
       }
     }

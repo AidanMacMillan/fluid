@@ -21,6 +21,7 @@ import { registerWindowOpener, restoreNotifications } from './notifications'
 import { registerTheme } from './theme'
 import { appIcon } from './app-icon'
 import { registerAutoUpdater } from './updater'
+import { registerAdBlocking } from './ad-blocking'
 
 // Keep in sync with `--spacing-titlebar` in src/renderer/src/assets/main.css.
 const TITLE_BAR_HEIGHT = 40
@@ -209,6 +210,7 @@ app.whenReady().then(async () => {
   }
   // Before the first window, whose preload asks for the theme to paint in.
   await registerTheme()
+  await registerAdBlocking()
   registerFileProtocol()
   // Before the first window, whose page may draw from any of those schemes and
   // is only allowed to once its policy names them (see ./page-policy.ts).
