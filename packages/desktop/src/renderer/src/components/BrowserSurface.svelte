@@ -141,6 +141,7 @@
       if (!rect) return
       if (report.kind === 'leave') {
         target = null
+        reorder.feedbackFor(null)
         return
       }
       // The glass's coordinates are the page area's; everything here is laid
@@ -148,7 +149,19 @@
       const x = rect.left + report.x
       const y = rect.top + report.y
       if (report.kind === 'over') {
-        if (reorder.tab !== null) target = targetAt(x, y, reorder.tab)
+        if (reorder.tab !== null) {
+          target = targetAt(x, y, reorder.tab)
+          reorder.feedbackFor(
+            target
+              ? JSON.stringify([
+                  'split',
+                  target.kind,
+                  target.kind === 'pane' ? target.tabId : null,
+                  target.edge
+                ])
+              : null
+          )
+        }
         return
       }
 

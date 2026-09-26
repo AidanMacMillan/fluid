@@ -266,6 +266,9 @@ importers:
       '@fluid/extension-vscode':
         specifier: workspace:*
         version: link:../../extensions/vscode
+      '@fluid/haptics':
+        specifier: workspace:*
+        version: link:../haptics
       '@fluid/sdk':
         specifier: workspace:*
         version: link:../sdk
@@ -339,6 +342,12 @@ importers:
       vite:
         specifier: ^7.2.6
         version: 7.3.6(@types/node@22.20.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.15)
+
+  packages/haptics:
+    devDependencies:
+      node-gyp:
+        specifier: 12.4.0
+        version: 12.4.0
 
   packages/sdk:
     dependencies:

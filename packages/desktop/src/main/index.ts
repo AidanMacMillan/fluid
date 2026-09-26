@@ -175,7 +175,12 @@ registerAppSchemes()
 // interleaving writes from two separate clusters until neither pg_control nor
 // the WAL matches and the directory will not open at all. Only one may run.
 if (!app.requestSingleInstanceLock()) {
-  app.exit(0)
+  if (is.dev) {
+    console.error(
+      'Fluid is already running. Quit the existing Fluid app (Cmd+Q on macOS), then run pnpm dev again.'
+    )
+  }
+  app.exit(is.dev ? 1 : 0)
 }
 
 app.on('second-instance', () => {

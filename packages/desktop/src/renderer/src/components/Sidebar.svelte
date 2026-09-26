@@ -140,6 +140,19 @@
     if (items) void workspace.arrangeSidebar(items)
   }
 
+  /** The New tab row inserts before every loose tab or folder. */
+  function onNewTabDragOver(event: DragEvent): void {
+    const first = looseRows[0]
+    reorder.aim(
+      event,
+      { section: 'tab', parentId: null, index: 0 },
+      first
+        ? { kind: 'line', rowId: first.id, edge: 'top', depth: 0 }
+        : { kind: 'end', section: 'tab' },
+      []
+    )
+  }
+
   /**
    * The right-click menu on a section's ground — anywhere in it that is not a
    * row, which has a menu of its own. The one thing it offers is a new folder,
@@ -305,13 +318,13 @@
            a control that stays put is easier to reach for than one that follows
            the last row down. It belongs to this section rather than the header
            because what it adds is a loose tab: a new tab starts unpinned, and
-           pinning is something done to it afterwards. Not a drop target of its
-           own — the list's own handler covers the space it sits in.
+           pinning is something done to it afterwards. A drop here goes before
+           the section's first row, with the same line as that row's top edge.
 
            It opens the launcher rather than a tab, which is also what Cmd+T
            does: a new tab is a question about where to go, and this is the one
            place it gets asked. -->
-      <li>
+      <li class="relative" ondragover={onNewTabDragOver}>
         <button
           type="button"
           onclick={() => window.api.launcher.open()}
@@ -321,6 +334,9 @@
           <span class="icon-[ph--plus] shrink-0 text-base" aria-hidden="true"></span>
           <span class="truncate">New tab</span>
         </button>
+        {#if looseRows.length === 0 && reorder.landsAtEnd('tab')}
+          <span class="pointer-events-none absolute inset-x-0 -bottom-0.5 h-0.5 drop-line"></span>
+        {/if}
       </li>
 
       {#each looseRows as row, index (row.id)}

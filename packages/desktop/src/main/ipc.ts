@@ -6,6 +6,7 @@ import { isSettingsWindow, openSettingsWindow } from './settings-window'
 import { hideExtensionSettings, showExtensionSettings } from './settings-views'
 import type { FolderPickerOptions } from '@fluid/sdk'
 import { chooseDirectory } from './directories'
+import { alignmentHaptic } from './haptics'
 import { prepareWebView } from './extension-views'
 import {
   chooseLauncherAlternative,
@@ -26,6 +27,7 @@ import {
   dismissFloating,
   goBack,
   goForward,
+  getHostWindow,
   hideBrowserView,
   navigate,
   popInTab,
@@ -106,6 +108,11 @@ import {
 // Deliberately a named surface rather than a generic "run this SQL" channel:
 // the renderer only gets the operations it actually needs.
 export function registerIpcHandlers(): void {
+  ipcMain.on('haptics:alignment', (event) => {
+    const host = getHostWindow()
+    if (host?.webContents !== event.sender || event.senderFrame !== event.sender.mainFrame) return
+    alignmentHaptic()
+  })
   // Browser views
   //
   // These do not touch the database: the renderer owns tab records, the main
