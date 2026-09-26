@@ -15,7 +15,7 @@
     "start": "electron-vite preview",
     "dev": "electron-vite dev",
     "build": "npm run typecheck && electron-vite build",
-    "postinstall": "electron-builder install-app-deps",
+    "postinstall": "electron-builder install-app-deps && node scripts/prepare-terminal.mjs",
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win",
     "build:mac": "npm run build && electron-builder --mac --publish never",
@@ -25,6 +25,7 @@
     "test:updater": "node --test test/updater.test.mjs",
     "test:claude-cli": "node --test test/claude-cli.test.mjs",
     "test:haptics": "node --test test/haptics.test.mjs",
+    "test:terminal": "node --test test/terminal.test.mjs",
     "icons": "electron scripts/theme-icons.mjs"
   },
   "dependencies": {

@@ -1,4 +1,5 @@
 appId: com.aidanmacmillan.fluid
+afterPack: scripts/prepare-terminal.mjs
 directories:
   buildResources: build
 files:
