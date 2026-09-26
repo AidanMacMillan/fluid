@@ -256,6 +256,8 @@ const api = {
     goBack: (tabId: string): void => ipcRenderer.send('browser:goBack', tabId),
     goForward: (tabId: string): void => ipcRenderer.send('browser:goForward', tabId),
     reload: (tabId: string): void => ipcRenderer.send('browser:reload', tabId),
+    /** Toggles the tab's audio without selecting or focusing it. */
+    toggleAudioMuted: (tabId: string): void => ipcRenderer.send('browser:toggleAudioMuted', tabId),
     /** Sends a tab's page to an address typed into the chrome's address bar. */
     navigate: (tabId: string, url: string): void =>
       ipcRenderer.send('browser:navigate', tabId, url),

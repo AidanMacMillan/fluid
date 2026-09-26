@@ -1,14 +1,16 @@
 import {
+  BrowserWindow,
   Menu,
   clipboard,
+  dialog,
   shell,
-  type BrowserWindow,
   type ContextMenuParams,
   type MenuItemConstructorOptions,
   type WebContents
 } from 'electron'
-import { is } from '@electron-toolkit/utils'
 import { profileMenuItems } from './profile-menu'
+
+const sourceWindows = new Set<BrowserWindow>()
 
 /** What the menu calls to open a link somewhere other than where it was found. */
 export type OpenLink = (url: string, profile: number | null) => void
@@ -30,7 +32,8 @@ export function attachContextMenu(
       mediaItems(webContents, params),
       editItems(webContents, params),
       navigationItems(webContents),
-      developerItems(webContents, params)
+      pageItems(webContents, window),
+      developerItems(webContents, window, params, openLink)
     ])
     if (template.length === 0) return
 
@@ -178,11 +181,109 @@ function navigationItems(webContents: WebContents): MenuItemConstructorOptions[]
   ]
 }
 
-/** Dev only, like the vibrancy cycler in index.ts: a tool, not a feature. */
+function reportPageError(window: BrowserWindow, message: string, error: unknown): void {
+  if (window.isDestroyed()) return
+  void dialog.showMessageBox(window, {
+    type: 'error',
+    message,
+    detail: error instanceof Error ? error.message : String(error)
+  })
+}
+
+async function savePage(webContents: WebContents, window: BrowserWindow): Promise<void> {
+  const url = webContents.getURL()
+  const name = (webContents.getTitle() || 'page')
+    // Control characters are invalid in filenames, just like path separators.
+    // eslint-disable-next-line no-control-regex
+    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_')
+    .slice(0, 160)
+  try {
+    const { canceled, filePath } = await dialog.showSaveDialog(window, {
+      title: 'Save Page As',
+      defaultPath: `${name}.html`,
+      filters: [{ name: 'Webpage, Complete', extensions: ['html', 'htm'] }]
+    })
+    if (canceled || !filePath || webContents.isDestroyed()) return
+    if (webContents.getURL() !== url) {
+      throw new Error('The page changed while the save dialog was open. Please try again.')
+    }
+    await webContents.savePage(filePath, 'HTMLComplete')
+  } catch (error) {
+    reportPageError(window, 'Could not save the page', error)
+  }
+}
+
+function pageItems(webContents: WebContents, window: BrowserWindow): MenuItemConstructorOptions[] {
+  return [
+    { label: 'Save As…', click: () => void savePage(webContents, window) },
+    {
+      label: 'Print…',
+      click: () => {
+        // Electron's direct print API rejects on macOS when no printers are
+        // configured, before showing the dialog (electron/electron#36897).
+        // The page's native print command still opens it, including Save as PDF.
+        // An isolated world avoids calling a site's replacement for window.print.
+        void webContents
+          .executeJavaScriptInIsolatedWorld(1, [{ code: 'window.print()' }], true)
+          .catch((error) => reportPageError(window, 'Could not open the print dialog', error))
+      }
+    }
+  ]
+}
+
+/** Keep source in the page's session, without widening the URLs normal tabs accept. */
+function viewPageSource(webContents: WebContents, window: BrowserWindow, openLink: OpenLink): void {
+  const url = webContents.getURL()
+  const source = new BrowserWindow({
+    parent: window,
+    width: 1000,
+    height: 750,
+    title: 'Page Source',
+    autoHideMenuBar: true,
+    webPreferences: {
+      session: webContents.session,
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  })
+  sourceWindows.add(source)
+  source.on('closed', () => sourceWindows.delete(source))
+  const followLink = (target: string): void => {
+    if (isFetchable(target)) openLink(target, null)
+  }
+  source.webContents.on('will-navigate', (event, target) => {
+    event.preventDefault()
+    followLink(target)
+  })
+  source.webContents.setWindowOpenHandler(({ url: target }) => {
+    followLink(target)
+    return { action: 'deny' }
+  })
+  void source.loadURL(`view-source:${url}`).catch((error) => {
+    if (source.isDestroyed()) return
+    source.close()
+    reportPageError(window, 'Could not view page source', error)
+  })
+}
+
 function developerItems(
   webContents: WebContents,
-  params: ContextMenuParams
+  window: BrowserWindow,
+  params: ContextMenuParams,
+  openLink: OpenLink
 ): MenuItemConstructorOptions[] {
-  if (!is.dev) return []
-  return [{ label: 'Inspect Element', click: () => webContents.inspectElement(params.x, params.y) }]
+  return [
+    {
+      label: 'View Page Source',
+      click: () => viewPageSource(webContents, window, openLink)
+    },
+    {
+      label: 'Inspect',
+      click: () => {
+        webContents.openDevTools({ mode: 'detach' })
+        webContents.inspectElement(params.x, params.y)
+      }
+    }
+  ]
 }

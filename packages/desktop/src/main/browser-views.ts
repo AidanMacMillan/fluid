@@ -125,6 +125,8 @@ export type BrowserViewState = {
   /** The page's icon as a `data:` URL, or null while none has resolved. */
   favicon: string | null
   loading: boolean
+  audible: boolean
+  audioMuted: boolean
   /**
    * How far the load now running has got, 0–1, or null when nothing is
    * loading. The landmarks are real — see `loadProgress` — and there is
@@ -584,8 +586,8 @@ function followWindow(): void {
 }
 
 /**
- * How wide the band down the page's leading edge is that counts as the pointer
- * reaching for a sidebar that is away, in the view's own pixels. Zero means
+ * How wide the band down the window's left edge is that counts as the pointer
+ * reaching for a sidebar that is away, in window content pixels. Zero means
  * nobody is asking, which is the state whenever the sidebar is docked.
  *
  * The band is the renderer's idea — it is the same strip the dock overlays the
@@ -602,8 +604,8 @@ let peekZone = 0
 let inPeekZone = false
 
 /**
- * Asks to be told when the pointer is within `width` pixels of the attached
- * page's leading edge, and stops asking at zero.
+ * Asks to be told when the pointer is within `width` pixels of the window's
+ * left edge over an attached page, and stops asking at zero.
  *
  * This is the hover the renderer cannot feel for itself. A native view takes
  * every pointer event inside its rect, so a strip of renderer laid under the
@@ -639,9 +641,9 @@ function reportPeek(inside: boolean): void {
  * `input-event` is a copy, not an interception: the page still gets the event,
  * so nothing here costs the page a click or a hover of its own. The coordinates
  * are the view's, in the same pixels the renderer measured its bounds in, so
- * they are carried to the window's by where the view sits — and measured from
- * the leftmost attached view's edge, which is the well's, and exactly the edge
- * the strip overlays. In a split that is only ever the panes down the left.
+ * they are carried to the window's by where the view sits. The activation band
+ * stays at the window's left edge: following a page's moving edge would sweep
+ * the band under a stationary pointer as the sidebar closes and reopen it.
  *
  * The one place this cannot see is a cross-origin iframe: it is a widget of its
  * own, and the pointer over it produces no event on the page around it. A site
@@ -674,15 +676,8 @@ function watchPointer(webContents: WebContents, tabId: string): void {
     // Typed as the base event, which carries no position. The mouse kinds are
     // the ones that do, and this is one of them.
     const x = placement.bounds.x + (input as Electron.MouseInputEvent).x
-    reportPeek(x - leadingEdge() < peekZone)
+    reportPeek(x >= 0 && x < peekZone)
   })
-}
-
-/** Where the page area starts: the left edge of the leftmost attached view. */
-function leadingEdge(): number {
-  let edge = Infinity
-  for (const { bounds } of attached.values()) edge = Math.min(edge, bounds.x)
-  return edge
 }
 
 /**
@@ -817,6 +812,8 @@ function publish(tabId: string, view: WebContentsView): void {
     // `ShouldShowLoadingUI`, which Electron does not expose), and so does this:
     // loading means a new document is on its way into the main frame.
     loading: loadProgress.has(tabId),
+    audible: view.webContents.isCurrentlyAudible(),
+    audioMuted: view.webContents.isAudioMuted(),
     progress: loadProgress.get(tabId) ?? null,
     canGoBack: navigationHistory.canGoBack(),
     canGoForward: navigationHistory.canGoForward(),
@@ -1334,6 +1331,7 @@ function createView(
   // Listed one by one because `on` is overloaded per event name and will not
   // take a union.
   const republish = (): void => publish(tabId, view)
+  webContents.on('audio-state-changed', republish)
   // A new document starting is the one moment the last failure stops being
   // true: the page area goes back to the live view, blank while it loads,
   // exactly as it does for a navigation that is going to succeed. Keyed off the
@@ -1862,6 +1860,15 @@ export function goForward(tabId: string): void {
 
 export function reload(tabId: string): void {
   views.get(tabId)?.webContents.reload()
+}
+
+/** Mutes only this tab, including when its page is in the background. */
+export function toggleAudioMuted(tabId: string): void {
+  const view = views.get(tabId)
+  if (!view || view.webContents.isDestroyed()) return
+  view.webContents.setAudioMuted(!view.webContents.isAudioMuted())
+  // Muting need not change whether the page is emitting audio.
+  publish(tabId, view)
 }
 
 /**

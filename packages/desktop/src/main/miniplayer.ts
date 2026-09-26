@@ -3,6 +3,7 @@ import { BaseWindow, BrowserWindow, screen, WebContentsView } from 'electron'
 import type { BrowserWindowConstructorOptions, Rectangle, WebContents } from 'electron'
 import { is } from '@electron-toolkit/utils'
 import { MINIPLAYER_AGENT, type MiniplayerKind } from './miniplayer-agent'
+import { constrainVideoResize } from './video-resize'
 
 /**
  * The floating window a page keeps playing in once you have looked away, and
@@ -290,7 +291,7 @@ export function openMiniplayerWindow(
   features: string,
   options: BrowserWindowConstructorOptions
 ): WebContents {
-  const { width, height } = sizeFromFeatures(features)
+  const { width, height, aspectRatio } = sizeFromFeatures(features)
   const area = screen.getDisplayMatching(host.getBounds()).workArea
   const total = height + BAR_HEIGHT
 
@@ -310,6 +311,14 @@ export function openMiniplayerWindow(
     x: Math.round(area.x + area.width - width - INSET),
     y: Math.round(area.y + area.height - total - INSET)
   })
+  if (aspectRatio) {
+    constrainVideoResize(floating.window, aspectRatio, BAR_HEIGHT, {
+      minWidth: MIN_WIDTH,
+      minHeight: MIN_HEIGHT,
+      maxWidth: MAX_WIDTH,
+      maxHeight: MAX_HEIGHT
+    })
+  }
   adoptMiniplayerWindow(tabId, page, floating)
   return view.webContents
 }
@@ -579,17 +588,36 @@ function releaseWindow({ view, bar, window }: Floating): void {
  * height})` becomes `width=360,height=240` by the time it reaches here (see
  * the polyfill in src/main/miniplayer-agent.ts).
  */
-function sizeFromFeatures(features: string): { width: number; height: number } {
+function sizeFromFeatures(features: string): {
+  width: number
+  height: number
+  aspectRatio: number | null
+} {
   const asked = new Map<string, number>()
   for (const entry of features.split(',')) {
     const [name, value] = entry.split('=')
-    const size = Number.parseInt(value ?? '', 10)
+    const size =
+      name?.trim() === 'fluid-video-aspect-ratio' ? Number(value) : Number.parseInt(value ?? '', 10)
     if (name && Number.isFinite(size)) asked.set(name.trim(), size)
   }
 
+  const ratio = asked.get('fluid-video-aspect-ratio')
+  const aspectRatio = ratio !== undefined && ratio > 0 ? ratio : null
+  let width = clamp(Math.round(asked.get('width') ?? DEFAULT_SIZE.width), MIN_WIDTH, MAX_WIDTH)
+  let height = clamp(Math.round(asked.get('height') ?? DEFAULT_SIZE.height), MIN_HEIGHT, MAX_HEIGHT)
+  if (aspectRatio) {
+    // Match the first frame to the picture ratio used during user resizing.
+    // For very tall or wide videos, fitting within the maximum size takes
+    // precedence over the usual minimums so the picture is never letterboxed.
+    height = Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, width / aspectRatio))
+    width = Math.min(MAX_WIDTH, height * aspectRatio)
+    height = width / aspectRatio
+  }
+
   return {
-    width: clamp(asked.get('width') ?? DEFAULT_SIZE.width, MIN_WIDTH, MAX_WIDTH),
-    height: clamp(asked.get('height') ?? DEFAULT_SIZE.height, MIN_HEIGHT, MAX_HEIGHT)
+    width: Math.max(1, Math.round(width)),
+    height: Math.max(1, Math.round(height)),
+    aspectRatio
   }
 }
 
