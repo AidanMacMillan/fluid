@@ -35,6 +35,8 @@
 
   let dock = $state<HTMLElement | null>(null)
   let timer: ReturnType<typeof setTimeout> | undefined
+  let wasOpen = false
+  let reopenAfter = 0
 
   const collapsed = $derived(workspace.sidebarCollapsed)
   const open = $derived(workspace.sidebarOut)
@@ -56,8 +58,15 @@
   const duration = $derived(workspace.sidebarResizing ? 0 : open ? OPEN_MS : CLOSE_MS)
 
   function show(): void {
+    if (!collapsed || performance.now() < reopenAfter) return
     clearTimeout(timer)
     workspace.sidebarPeeking = true
+  }
+
+  // Entering the dock only keeps an existing peek alive. The shrinking dock
+  // can move under the pointer, but only the edge strip should start a peek.
+  function keepOpen(): void {
+    if (workspace.sidebarPeeking) clearTimeout(timer)
   }
 
   function hide(): void {
@@ -81,6 +90,17 @@
   // starts from the strip rather than from a sidebar nothing is hovering.
   $effect(() => {
     if (!collapsed) workspace.sidebarPeeking = false
+  })
+
+  // Let a close finish before accepting another edge entry. Ignored entries
+  // are not queued: a pointer left on the strip must leave and enter again.
+  // Run before DOM updates, which can themselves produce hover crossings.
+  $effect.pre(() => {
+    if (wasOpen && !open) {
+      clearTimeout(timer)
+      reopenAfter = performance.now() + CLOSE_MS
+    }
+    wasOpen = open
   })
 
   /**
@@ -115,7 +135,7 @@
   class="relative flex shrink-0 transition-[width] duration-(--panel-duration) ease-glide motion-reduce:transition-none"
   style:width="{width}px"
   style:--panel-duration="{duration}ms"
-  onmouseenter={collapsed ? show : undefined}
+  onmouseenter={collapsed ? keepOpen : undefined}
   onmouseleave={collapsed ? hide : undefined}
 >
   <!-- The sidebar stays mounted whether it is out or away, so the motion has
