@@ -68,24 +68,7 @@
    */
   let now = $state(Date.now())
 
-  /** Whether "Clear history" has been pressed once and is waiting to be meant. */
-  let confirmingClear = $state(false)
-
   const shown = $derived(entries.filter((entry) => matches(entry, query)))
-
-  /**
-   * How much history there is, and — while the field is narrowing it — how much
-   * of that is being shown. Both numbers, because either alone misleads: the
-   * total says nothing about a filter that is hiding most of it, and the count
-   * of visible rows reads as though the rest had been deleted.
-   */
-  const countLabel = $derived(
-    shown.length === entries.length
-      ? entries.length === 1
-        ? '1 entry'
-        : `${entries.length} entries`
-      : `${shown.length} of ${entries.length}`
-  )
 
   $effect(() => {
     const timer = setInterval(() => (now = Date.now()), 30_000)
@@ -157,18 +140,6 @@
     selected = Math.max(0, Math.min(selected, shown.length - 1))
   }
 
-  /** Forgets the lot. Guarded by a second press rather than by a dialog. */
-  async function clear(): Promise<void> {
-    if (!context) return
-    if (!confirmingClear) {
-      confirmingClear = true
-      return
-    }
-    await api.clipboard.clear(context.taskId)
-    entries = []
-    confirmingClear = false
-  }
-
   /** Focus the field the moment the panel appears: it is what the panel opens for. */
   function autofocus(node: HTMLInputElement): void {
     node.focus()
@@ -184,6 +155,7 @@
    * cleared and the two would otherwise be one keystroke apart.
    */
   function onKeydown(event: KeyboardEvent): void {
+    if (event.target instanceof Element && event.target.closest('button')) return
     if (shown.length === 0) return
 
     if (event.key === 'ArrowDown') {
@@ -273,18 +245,14 @@
       autocapitalize="off"
       aria-label="Filter clipboard history"
       placeholder="Filter clipboard history"
-      class="w-full cursor-text bg-transparent text-sm text-ink-50 outline-none
+      class="min-w-0 flex-1 cursor-text bg-transparent text-sm text-ink-50 outline-none
              placeholder:text-ink-500"
     />
   </div>
 
   {#if loaded && entries.length === 0}
-    <!-- What the panel is, said once, for a task that has not copied anything
-         yet. It teaches rather than apologises: nothing is wrong here, the
-         feature simply has not had anything to catch. -->
     <p class="px-4 py-3 text-[0.6875rem] leading-relaxed text-ink-500">
-      Nothing has been copied in this task yet. Anything copied while the app is in front is kept
-      here — text, formatting and pictures alike.
+      Nothing in the clipboard history for this task.
     </p>
   {:else if loaded && shown.length === 0}
     <p class="px-4 py-3 text-[0.6875rem] leading-relaxed text-ink-500">
@@ -443,27 +411,6 @@
         </li>
       {/each}
     </ul>
-
-    <!-- The count, and the one destructive thing the panel can do. Below the
-         list rather than beside the field, because both are about the whole
-         history rather than about what is being looked for in it — which is why
-         the count says how much of that history is currently hidden by the
-         filter rather than only counting the rows on screen. -->
-    <div class="flex items-center justify-between border-t border-white/10 px-4 py-2">
-      <span class="text-[0.6875rem] text-ink-500">
-        {countLabel}
-      </span>
-      <button
-        type="button"
-        onclick={() => void clear()}
-        onmouseleave={() => (confirmingClear = false)}
-        class="rounded-md glass-control px-2 py-1 text-[0.6875rem] {confirmingClear
-          ? 'text-red-300'
-          : 'text-ink-500 hover:text-ink-200'}"
-      >
-        {confirmingClear ? 'Really clear?' : 'Clear history'}
-      </button>
-    </div>
   {/if}
 </div>
 
