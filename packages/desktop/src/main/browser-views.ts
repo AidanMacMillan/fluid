@@ -125,6 +125,8 @@ export type BrowserViewState = {
   /** The page's icon as a `data:` URL, or null while none has resolved. */
   favicon: string | null
   loading: boolean
+  audible: boolean
+  audioMuted: boolean
   /**
    * How far the load now running has got, 0–1, or null when nothing is
    * loading. The landmarks are real — see `loadProgress` — and there is
@@ -817,6 +819,8 @@ function publish(tabId: string, view: WebContentsView): void {
     // `ShouldShowLoadingUI`, which Electron does not expose), and so does this:
     // loading means a new document is on its way into the main frame.
     loading: loadProgress.has(tabId),
+    audible: view.webContents.isCurrentlyAudible(),
+    audioMuted: view.webContents.isAudioMuted(),
     progress: loadProgress.get(tabId) ?? null,
     canGoBack: navigationHistory.canGoBack(),
     canGoForward: navigationHistory.canGoForward(),
@@ -1334,6 +1338,7 @@ function createView(
   // Listed one by one because `on` is overloaded per event name and will not
   // take a union.
   const republish = (): void => publish(tabId, view)
+  webContents.on('audio-state-changed', republish)
   // A new document starting is the one moment the last failure stops being
   // true: the page area goes back to the live view, blank while it loads,
   // exactly as it does for a navigation that is going to succeed. Keyed off the
@@ -1862,6 +1867,15 @@ export function goForward(tabId: string): void {
 
 export function reload(tabId: string): void {
   views.get(tabId)?.webContents.reload()
+}
+
+/** Mutes only this tab, including when its page is in the background. */
+export function toggleAudioMuted(tabId: string): void {
+  const view = views.get(tabId)
+  if (!view || view.webContents.isDestroyed()) return
+  view.webContents.setAudioMuted(!view.webContents.isAudioMuted())
+  // Muting need not change whether the page is emitting audio.
+  publish(tabId, view)
 }
 
 /**
