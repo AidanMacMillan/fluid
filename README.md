@@ -2,6 +2,11 @@
 
 A desktop workspace, built with Electron, Svelte and TypeScript.
 
+## License
+
+Fluid is licensed under the [MIT License](LICENSE.md). Third-party dependencies
+remain under their respective licenses.
+
 ## Packages
 
 | Package                        | Path                     | What it is                                                                                                    |

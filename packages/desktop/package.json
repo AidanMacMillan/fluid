@@ -1,5 +1,6 @@
 {
   "name": "@fluid/desktop",
+  "license": "MIT",
   "productName": "Fluid",
   "version": "0.1.0",
   "description": "The Fluid desktop app: Electron main process, preload and renderer.",
