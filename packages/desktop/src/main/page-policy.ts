@@ -3,6 +3,7 @@ import { pathToFileURL } from 'node:url'
 import { is } from '@electron-toolkit/utils'
 import type { Session } from 'electron'
 import { FILE_SCHEME } from './files'
+import { setResponsePolicy } from './response-policy'
 
 /**
  * The content security policy of the two pages that draw what extensions
@@ -33,8 +34,8 @@ export type PolicedPage = 'index.html' | 'extension-view.html' | 'extension-host
  * Gives `page`, wherever it loads in `target`, a policy that lets it draw from
  * the app's file store and from `schemes`, and run code and styles from
  * `codeOrigins` — an installed extension's own folder, for its views (see
- * src/main/extensions/installed.ts). A session takes one such listener, so
- * this is the only thing that may register one on the sessions it is given.
+ * src/main/extensions/installed.ts). Header policies share Electron's single
+ * listener through response-policy.
  */
 export function applyPagePolicy(
   target: Session,
@@ -43,14 +44,17 @@ export function applyPagePolicy(
   codeOrigins: readonly string[] = []
 ): void {
   const policy = policyFor(page, [FILE_SCHEME, ...schemes], codeOrigins)
-  target.webRequest.onHeadersReceived({ urls: [`${rendererRoot()}/*`] }, (details, callback) => {
-    if (details.resourceType !== 'mainFrame' || pageOf(details.url) !== page) {
-      callback({})
-      return
+  setResponsePolicy(target, 'app-page', (details) => {
+    if (
+      !details.url.startsWith(`${rendererRoot()}/`) ||
+      details.resourceType !== 'mainFrame' ||
+      pageOf(details.url) !== page
+    ) {
+      return {}
     }
-    callback({
+    return {
       responseHeaders: { ...details.responseHeaders, 'Content-Security-Policy': [policy] }
-    })
+    }
   })
 }
 

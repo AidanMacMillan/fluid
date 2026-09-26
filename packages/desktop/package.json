@@ -21,6 +21,7 @@
     "build:mac": "npm run build && electron-builder --mac --publish never",
     "build:linux": "npm run build && electron-builder --linux",
     "test:isolation": "node test/isolation/run.mjs",
+    "test:adblocker": "node test/adblocker/run.mjs",
     "test:updater": "node --test test/updater.test.mjs",
     "test:claude-cli": "node --test test/claude-cli.test.mjs",
     "icons": "electron scripts/theme-icons.mjs"
@@ -39,9 +40,12 @@
     "@fluid/extension-video": "workspace:*",
     "@fluid/extension-vscode": "workspace:*",
     "@fluid/sdk": "workspace:*",
+    "@ghostery/adblocker": "^2.18.2",
+    "@ghostery/adblocker-content": "^2.18.2",
     "drizzle-orm": "^0.45.2",
     "electron-updater": "^6.8.9",
     "node-pty": "^1.1.0",
+    "tldts-experimental": "^7.4.15",
     "zod": "^4.6.5"
   },
   "devDependencies": {
