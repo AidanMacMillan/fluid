@@ -46,11 +46,12 @@ Check existing membership at [developer.apple.com/account](https://developer.app
    Versions below `1.0.0` indicate early development. Keep the version free of
    prerelease suffixes and publish it as a regular GitHub release so the
    existing updater channel picks it up.
-2. Commit the version and release setup, push your changes, then push its tag:
+2. Merge the release PR, then tag the merged commit on `main`. For 0.1.1:
 
    ```sh
-   git tag v0.1.0
-   git push origin v0.1.0
+   git fetch origin
+   git tag v0.1.1 origin/main
+   git push origin v0.1.1
    ```
 
 3. The **Release Mac app** workflow builds Apple Silicon (`arm64`) and Intel
@@ -65,6 +66,12 @@ Check existing membership at [developer.apple.com/account](https://developer.app
    metadata power the updater, while DMGs are the initial download.
 5. Install a DMG in `/Applications`, verify it launches, add release notes, then
    **Publish release** in GitHub. Drafts are invisible to the updater.
+   The prepared [0.1.1 release notes](release-notes/0.1.1.md) can be applied to
+   the draft from the repository root:
+
+   ```sh
+   gh release edit v0.1.1 --notes-file docs/release-notes/0.1.1.md
+   ```
 
 To retry a failed release, rerun its workflow, or manually run the workflow
 against the same version tag. Do not replace assets of an already published
