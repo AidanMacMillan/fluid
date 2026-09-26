@@ -45,5 +45,5 @@
     label="Back to tab"
     onclick={() => window.api.popout.back()}
   />
-  <IconButton icon="icon-[ph--x]" label="Close" onclick={() => window.api.popout.dismiss()} />
+  <IconButton icon="icon-[ph--minus]" label="Close" onclick={() => window.api.popout.dismiss()} />
 </div>
