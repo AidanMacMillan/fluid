@@ -49,17 +49,26 @@
   /** The section picked in the nav, or null for the one the panel opens on. */
   let chosen = $state<string | null>(null)
 
+  const sections = $derived<Section[]>([...SECTIONS, ...extensionSections])
+
   /**
    * The section showing: the one picked, or the first there is. An extension's
    * section goes with the extension, so turning it off moves the panel on to
    * the first section rather than to nothing.
    */
-  const current = $derived.by<Section>(() => {
-    const all: Section[] = [...SECTIONS, ...extensionSections]
-    return all.find((item) => item.id === chosen) ?? all[0]
-  })
+  const current = $derived(sections.find((item) => item.id === chosen) ?? sections[0])
 
   const heading = $derived(current.label)
+
+  // Menu accelerators also reach us while an extension's native settings view
+  // holds focus, where a key listener on this page would never see the chord.
+  $effect(() =>
+    window.api.shortcuts.onNavigate((navigation) => {
+      if (navigation.kind !== 'tab-step' || !extensions.loaded) return
+      const index = sections.findIndex((item) => item.id === current.id)
+      chosen = sections[(index + navigation.delta + sections.length) % sections.length].id
+    })
+  )
 </script>
 
 <!-- The window is the panel, and the panel is the launcher's: the same vibrancy

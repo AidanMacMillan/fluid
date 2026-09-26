@@ -1,4 +1,10 @@
-import { app, Menu, type MenuItemConstructorOptions, type WebContents } from 'electron'
+import {
+  app,
+  BrowserWindow,
+  Menu,
+  type MenuItemConstructorOptions,
+  type WebContents
+} from 'electron'
 import { is } from '@electron-toolkit/utils'
 import {
   copyAddress,
@@ -15,6 +21,7 @@ import {
 import { openLauncherWindow } from './launcher-window'
 import { openClipboardWindow } from './clipboard-window'
 import { openProjectWindow } from './project-window'
+import { isSettingsWindow } from './settings-window'
 import { checkForUpdates, UPDATE_MENU_ID } from './updater'
 
 /**
@@ -150,9 +157,9 @@ export type ShortcutNavigation =
  * they are working in — and the launcher is the case that would actually bite:
  * the task it is adding a tab to is read when its choice comes back, so a task
  * switched underneath it would redirect the tab. Comparing windows rules the
- * launcher, the settings panel and a page's popup out at once, the last two for
- * the reason `toggleSidebar` checks `isEnabled`: a modal child holds the focus
- * its parent cannot have.
+ * launcher, the settings panel and a page's popup out at once. The settings
+ * panel handles Up/Down itself, moving through its sections without changing
+ * the workspace behind it, including while an extension's native view has focus.
  *
  * The chords themselves stay clear of the text fields inside that window.
  * Cmd+Option is unbound in a macOS field, where a bare Cmd+arrow is line-start
@@ -171,6 +178,12 @@ function navigationItem(
     accelerator,
     visible,
     click: (_item, window) => {
+      if (window instanceof BrowserWindow && isSettingsWindow(window)) {
+        if (navigation.kind === 'tab-step') {
+          window.webContents.send('shortcuts:navigate', navigation)
+        }
+        return
+      }
       const host = getHostWindow()
       if (!host || window !== host) return
       sendToHost('shortcuts:navigate', navigation)
