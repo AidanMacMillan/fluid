@@ -39,6 +39,7 @@ import {
   showFileView,
   showExtensionView,
   stepFind,
+  toggleAudioMuted,
   watchPeekZone,
   type MeasuredBounds,
   type ViewBounds
@@ -164,6 +165,7 @@ export function registerIpcHandlers(): void {
   ipcMain.on('browser:goBack', (_e, tabId: string) => goBack(tabId))
   ipcMain.on('browser:goForward', (_e, tabId: string) => goForward(tabId))
   ipcMain.on('browser:reload', (_e, tabId: string) => reload(tabId))
+  ipcMain.on('browser:toggleAudioMuted', (_e, tabId: string) => toggleAudioMuted(tabId))
   ipcMain.on('browser:navigate', (_e, tabId: string, url: string) => navigate(tabId, url))
 
   // The one browser channel that does touch storage, because what it answers is
