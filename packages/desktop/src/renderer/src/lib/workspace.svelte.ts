@@ -822,13 +822,15 @@ class Workspace {
     if (!source) return
 
     // The rest of that task's tabs, which are only to hand when it is the
-    // selected one. A page the task already has a pinned row for is that row's,
-    // however the link to it was followed — see `openLink`.
+    // selected one. Reuse a matching pinned row unless it is already active,
+    // so opening a link from that tab still opens a new one — see `openLink`.
     const siblings =
       source.taskId === this.activeTaskId
         ? this.tabs
         : await fluid.tabs.list({ taskId: source.taskId })
-    const pinned = siblings.find((tab) => pinnedTo(tab, url, profile))
+    const pinned = siblings.find(
+      (tab) => tab.id !== this.activeTabId && pinnedTo(tab, url, profile)
+    )
     if (pinned) {
       await this.revealPinnedTab(pinned, url, background)
       return
@@ -864,10 +866,11 @@ class Workspace {
    * extension. Following one of those links is
    * asking for that page, and the task already has a row for that page — so it
    * goes there, rather than opening a second tab on it that the pinned one
-   * then sits next to.
+   * then sits next to. If that pinned tab is already active, open a new tab
+   * so the request still has a visible result.
    */
   async openLink(url: string): Promise<void> {
-    const pinned = this.tabs.find((tab) => pinnedTo(tab, url, null))
+    const pinned = this.tabs.find((tab) => tab.id !== this.activeTabId && pinnedTo(tab, url, null))
     if (pinned) {
       await this.revealPinnedTab(pinned, url, false)
       return
