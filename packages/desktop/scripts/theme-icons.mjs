@@ -117,30 +117,39 @@ function recolor(svg, theme, colors) {
  * doesn't turn the tile flat. Keep build/icon.svg untreated: macOS supplies
  * its own finish to the packaged icon. This is a static approximation, not
  * the system's dynamic Liquid Glass rendering.
+ * The rim and bevel are twice their original widths for a stronger highlight
+ * at dock sizes. Both follow the shared tile outline, with their outer halves
+ * clipped away to keep the highlight inside the silhouette.
+ * Broad shoulders in the gradients carry the light along the straight edges,
+ * with a faint rim between the two diagonal highlights.
  */
 function withHighlights(svg) {
   return svg
     .replace(
       '</defs>',
-      `<linearGradient id="rim" x1="100" y1="100" x2="924" y2="924" gradientUnits="userSpaceOnUse">
-<stop stop-color="#fff" stop-opacity="0.65"/>
-<stop offset="0.23" stop-color="#fff" stop-opacity="0.08"/>
-<stop offset="0.5" stop-color="#fff" stop-opacity="0.02"/>
-<stop offset="0.77" stop-color="#fff" stop-opacity="0.08"/>
-<stop offset="1" stop-color="#fff" stop-opacity="0.45"/>
+      `<clipPath id="tile-clip"><use href="#tile-outline"/></clipPath>
+<linearGradient id="rim" x1="0" y1="0" x2="1" y2="1">
+<stop stop-color="#fff" stop-opacity="0.75"/>
+<stop offset="0.28" stop-color="#fff" stop-opacity="0.4"/>
+<stop offset="0.5" stop-color="#fff" stop-opacity="0.08"/>
+<stop offset="0.72" stop-color="#fff" stop-opacity="0.3"/>
+<stop offset="1" stop-color="#fff" stop-opacity="0.6"/>
 </linearGradient>
-<linearGradient id="bevel" x1="100" y1="100" x2="924" y2="924" gradientUnits="userSpaceOnUse">
-<stop stop-color="#fff" stop-opacity="0.14"/>
-<stop offset="0.3" stop-color="#fff" stop-opacity="0"/>
-<stop offset="0.7" stop-color="#fff" stop-opacity="0"/>
-<stop offset="1" stop-color="#fff" stop-opacity="0.1"/>
+<linearGradient id="bevel" x1="0" y1="0" x2="1" y2="1">
+<stop stop-color="#fff" stop-opacity="0.22"/>
+<stop offset="0.28" stop-color="#fff" stop-opacity="0.1"/>
+<stop offset="0.5" stop-color="#fff" stop-opacity="0.02"/>
+<stop offset="0.72" stop-color="#fff" stop-opacity="0.07"/>
+<stop offset="1" stop-color="#fff" stop-opacity="0.16"/>
 </linearGradient>
 </defs>`
     )
     .replace(
       '</svg>',
-      `<rect x="104" y="104" width="816" height="816" rx="181.4" stroke="url(#bevel)" stroke-width="8"/>
-<rect x="101.5" y="101.5" width="821" height="821" rx="183.9" stroke="url(#rim)" stroke-width="3"/>
+      `<g clip-path="url(#tile-clip)">
+<use href="#tile-outline" stroke="url(#bevel)" stroke-width="32"/>
+<use href="#tile-outline" stroke="url(#rim)" stroke-width="12"/>
+</g>
 </svg>`
     )
 }

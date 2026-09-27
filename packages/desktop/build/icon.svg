@@ -1,5 +1,7 @@
 <svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
 <defs>
+<!-- An optically sized 856px tile with broad corners matches its Dock neighbors. -->
+<path id="tile-outline" d="M 344 84 H 680 C 853.333 84 940 170.667 940 344 V 680 C 940 853.333 853.333 940 680 940 H 344 C 170.667 940 84 853.333 84 680 V 344 C 84 170.667 170.667 84 344 84 Z"/>
 <filter id="shadow" x="0" y="0" width="1024" height="1024" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
 <feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#000" flood-opacity="0.3"/>
 </filter>
@@ -8,8 +10,8 @@
 <stop offset="1" stop-color="#9C9C9C"/>
 </linearGradient>
 </defs>
-<rect x="100" y="100" width="824" height="824" rx="185.4" fill="black" filter="url(#shadow)"/>
-<g transform="translate(100 100) scale(6.4375)">
+<use href="#tile-outline" fill="black" filter="url(#shadow)"/>
+<g transform="translate(84 84) scale(6.6875)">
 <rect x="33.5" y="33.5" width="61" height="61" rx="13.5" fill="url(#paint0_linear_30_2)" stroke="#737373"/>
 </g>
 </svg>
