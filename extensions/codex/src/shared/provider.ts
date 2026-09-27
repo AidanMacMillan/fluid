@@ -2,7 +2,7 @@ import type { AgentProvider } from '@fluid/agent-core'
 export const codexProvider: AgentProvider = {
   id: 'codex',
   name: 'Codex',
-  icon: 'icon-[logos--openai-icon]',
+  icon: 'icon-[ph--open-ai-logo] text-ink-50',
   attachmentScheme: 'codex-file',
   defaultMode: 'workspace',
   defaultEffort: 'high',
