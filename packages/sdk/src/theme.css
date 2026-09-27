@@ -88,6 +88,7 @@
   }
 
   &[aria-selected='true'],
+  &[aria-current='true'],
   &[aria-current='page'] {
     background-color: var(--theme-selected);
     box-shadow:

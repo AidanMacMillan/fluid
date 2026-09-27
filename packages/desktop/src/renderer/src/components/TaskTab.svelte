@@ -95,6 +95,7 @@
      text width, not its basis, as its intrinsic size, so a cap set on the tab
      would leave the strip collapsed to the titles and never be reached. -->
 <div
+  role="presentation"
   class="group/tab relative min-w-24 shrink grow basis-0 {dragging ? 'opacity-40' : ''}"
   ondragover={(event) => {
     reorder.over(event, 'task', index, 'x')

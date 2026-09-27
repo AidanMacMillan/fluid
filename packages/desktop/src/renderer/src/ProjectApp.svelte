@@ -598,7 +598,7 @@
         <li>
           <button
             type="button"
-            aria-selected={index === selected}
+            aria-current={index === selected}
             onmouseenter={() => (selected = index)}
             onclick={() => void create(row.withFolder)}
             disabled={busy || query.trim() === ''}
@@ -691,7 +691,7 @@
                pointer and the arrow keys got it there. -->
           <button
             type="button"
-            aria-selected={index === selected}
+            aria-current={index === selected}
             onmouseenter={() => (selected = index)}
             onclick={() => choose(project)}
             oncontextmenu={(event) => void menu(project, event)}
@@ -742,7 +742,7 @@
       <li>
         <button
           type="button"
-          aria-selected={selected === matches.length}
+          aria-current={selected === matches.length}
           onmouseenter={() => (selected = matches.length)}
           onclick={() => ask({ kind: 'new' }, query.trim())}
           class="flex w-full items-center gap-2.5 rounded-lg glass-control px-2.5 py-2 text-left"
@@ -766,7 +766,7 @@
       <li>
         <button
           type="button"
-          aria-selected={selected === matches.length + 1}
+          aria-current={selected === matches.length + 1}
           onmouseenter={() => (selected = matches.length + 1)}
           onclick={showSpaces}
           class="flex w-full items-center gap-2.5 rounded-lg glass-control px-2.5 py-2 text-left"
@@ -796,7 +796,7 @@
         <li>
           <button
             type="button"
-            aria-selected={index === selected}
+            aria-current={index === selected}
             onmouseenter={() => (selected = index)}
             onclick={() => ask({ kind: 'rename-space', space }, space.name)}
             oncontextmenu={(event) => void spaceMenu(space, event)}
@@ -817,7 +817,7 @@
       <li>
         <button
           type="button"
-          aria-selected={selected === spaceMatches.length}
+          aria-current={selected === spaceMatches.length}
           onmouseenter={() => (selected = spaceMatches.length)}
           onclick={() => ask({ kind: 'new-space', project: null }, query.trim())}
           class="flex w-full items-center gap-2.5 rounded-lg glass-control px-2.5 py-2 text-left"
