@@ -445,6 +445,9 @@ function createFloating(tabId: string, view: WebContentsView, bounds: Rectangle)
     // over the last. A miniplayer's page brings its own black.
     ...(process.platform === 'darwin'
       ? {
+          // A native panel can float above fullscreen apps without hiding the
+          // application's Dock entry to turn it into a UI-element process.
+          type: 'panel' as const,
           vibrancy: 'hud' as const,
           visualEffectState: 'active' as const,
           backgroundColor: '#00000000'
@@ -457,7 +460,12 @@ function createFloating(tabId: string, view: WebContentsView, bounds: Rectangle)
   // is often a full-screen editor on another space.
   window.setAlwaysOnTop(true, 'floating')
   if (process.platform === 'darwin') {
-    window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+    window.setVisibleOnAllWorkspaces(true, {
+      visibleOnFullScreen: true,
+      // Electron otherwise hides the Dock icon for the entire app, and
+      // destroying the floating window does not bring it back.
+      skipTransformProcessType: true
+    })
   }
 
   const bar = createBar(tabId)
