@@ -1,5 +1,6 @@
+import { appendReplay } from '@fluid/agent-core/main'
 import { randomUUID } from 'node:crypto'
-import { writeFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import {
   forkSession,
@@ -91,7 +92,7 @@ import { describeScope, READ_ONLY_TOOLS, scopeOf, workspaceTools, type ClaudeSco
  * ago. A session that overflows can still be re-read from disk on the next
  * attach, which is where the whole transcript lives anyway.
  */
-const MAX_REPLAY_EVENTS = 4000
+const MAX_REPLAY_EVENTS = 100_000
 
 /** How long events are gathered before being sent, in milliseconds. */
 const FLUSH_MS = 16
@@ -176,6 +177,7 @@ const sessions = new Map<string, Session>()
  * session the first is starting rather than start another.
  */
 const starting = new Map<string, Promise<Session | { failure: string }>>()
+const generations = new Map<string, symbol>()
 
 // ---------------------------------------------------------------------------
 // Starting one
@@ -234,7 +236,11 @@ function buildPreamble(scope: ClaudeScope | null): string {
  */
 export function connectView(connection: ViewConnection): void {
   connection.onMessage((message) => {
-    if ((message as ClaudeFromView | null)?.type === 'attach') void attach(connection)
+    if ((message as ClaudeFromView | null)?.type === 'attach')
+      void attach(connection).catch((error) => {
+        if (connection.connected)
+          connection.post({ type: 'failure', message: reasonOf(error) } satisfies ClaudeToView)
+      })
   })
 }
 
@@ -251,13 +257,13 @@ async function attach(connection: ViewConnection): Promise<void> {
   // Whatever is gathered but not yet sent goes to the views already watching
   // first. It is part of the replay too, so the new view gets it there, and
   // holding it back until after would hand the new view the same events twice.
+  if (!connection.connected || sessions.get(session.tabId) !== session) return
   flushNow(session)
   post({
     type: 'snapshot',
     replay: [...session.replay],
     exit: session.exit,
-    running: session.running,
-    thinking: await showsThinking()
+    running: session.running
   })
   if (!connection.connected || sessions.get(session.tabId) !== session) return
   session.viewers.add(connection)
@@ -267,10 +273,13 @@ async function attach(connection: ViewConnection): Promise<void> {
 /** The tab's session, started if it is not running. */
 function sessionFor(tabId: string): Promise<Session | { failure: string }> {
   const running = sessions.get(tabId)
-  if (running) return Promise.resolve(running)
+  if (running && !running.exit) return Promise.resolve(running)
+  if (running) destroyClaude(tabId)
   let opening = starting.get(tabId)
   if (!opening) {
-    opening = open(tabId).finally(() => {
+    const generation = Symbol(tabId)
+    generations.set(tabId, generation)
+    opening = open(tabId, generation).finally(() => {
       if (starting.get(tabId) === opening) starting.delete(tabId)
     })
     starting.set(tabId, opening)
@@ -282,7 +291,7 @@ function sessionFor(tabId: string): Promise<Session | { failure: string }> {
  * Starts a tab's session: its conversation so far, read back off disk, and
  * the query that carries it on.
  */
-async function open(tabId: string): Promise<Session | { failure: string }> {
+async function open(tabId: string, generation: symbol): Promise<Session | { failure: string }> {
   const tab = await context().api.tabs.get({ id: tabId })
   if (!tab || !isClaudeTab(tab)) return { failure: 'This tab no longer exists.' }
   const options = tab.payload
@@ -300,7 +309,7 @@ async function open(tabId: string): Promise<Session | { failure: string }> {
 
   // The tab was stopped while this was waiting. Starting a process for it now
   // would leave one running that nothing will ever stop.
-  if (!starting.has(tabId)) return { failure: 'This session has stopped.' }
+  if (generations.get(tabId) !== generation) return { failure: 'This session has stopped.' }
 
   try {
     const session = start(tabId, options, history, scope)
@@ -350,6 +359,7 @@ async function readHistory(options: ClaudeTabPayload): Promise<ClaudeEvent[]> {
       events.push(
         ...stream.read({
           type: message.type,
+          uuid: message.uuid,
           message: message.message,
           parent_tool_use_id: message.parent_tool_use_id
         } as unknown as SDKMessage)
@@ -577,6 +587,7 @@ async function pump(session: Session): Promise<void> {
 function setRunning(session: Session, running: boolean, after: 'done' | null = 'done'): void {
   if (session.running === running) return
   session.running = running
+  record(session, [{ type: 'running', running }])
   if (running) showParked(session)
   else markTab(session, after)
 }
@@ -749,6 +760,7 @@ export async function forkClaude(
     // new wording about to be typed, and the reader would have asked twice.
     const messages = await getSessionMessages(session.sessionId, { dir: session.cwd })
     const index = messages.findIndex((message) => message.uuid === uuid)
+    if (index < 0) return 'This turn could not be found in the saved conversation.'
 
     // Nothing before it: the branch is an empty conversation in the same
     // folder, which is a new tab rather than a fork of anything.
@@ -767,8 +779,14 @@ export async function forkClaude(
 
   const api = context().api
   const tab = await api.tabs.get({ id: tabId })
-  if (!tab) return 'This tab no longer exists.'
-  const payload: ClaudeTabPayload = { cwd: session.cwd, ...(sessionId ? { sessionId } : {}) }
+  if (!tab || !isClaudeTab(tab) || session.ended) return 'This tab no longer exists.'
+  const payload: ClaudeTabPayload = {
+    ...tab.payload,
+    cwd: session.cwd,
+    sessionId: sessionId ?? undefined,
+    prompt: undefined,
+    attachmentTabs: [...new Set([...(tab.payload.attachmentTabs ?? []), tabId])]
+  }
   const branch = await api.tabs.open({
     taskId: tab.taskId,
     tab: { type: CLAUDE_TAB, title: null, payload }
@@ -1015,22 +1033,25 @@ function settleAll(session: Session, decision: ClaudeDecision): void {
  */
 export function sendToClaude(tabId: string, text: string, attachments: ClaudeUpload[]): void {
   const session = sessions.get(tabId)
-  if (!session || session.exit) return
+  if (!session || session.exit) throw new Error('Reconnect the Claude tab before sending.')
+  if (session.running) throw new Error('Wait for Claude to finish, or stop the current turn.')
 
   const paths: string[] = []
   const saved: { name: string; key: string }[] = []
   for (const file of attachments) {
     try {
       const name = safeName(file.name)
-      const path = join(session.attachments, name)
-      writeFileSync(path, Buffer.from(file.data, 'base64'))
+      const directory = randomUUID()
+      mkdirSync(join(session.attachments, directory), { recursive: true })
+      const path = join(session.attachments, directory, name)
+      writeFileSync(path, Buffer.from(file.data, 'base64'), { flag: 'wx' })
       paths.push(path)
       // Relative to the attachments root rather than to this tab's directory:
       // the tab id is part of what makes the key unique, and the view turns the
       // whole of it into a `claude-code-file://attachments/` URL.
-      saved.push({ name, key: `${tabId}/${name}` })
+      saved.push({ name, key: `${tabId}/${directory}/${name}` })
     } catch (error) {
-      console.error('Failed to save a Claude attachment:', error)
+      throw new Error(`Could not save attachment: ${reasonOf(error)}`)
     }
   }
 
@@ -1077,13 +1098,9 @@ export async function interruptClaude(tabId: string): Promise<void> {
   // raises the signal for these too, but settling here means the view's cards
   // close at the moment the user asked rather than a round trip later.
   settleAll(session, 'cancel')
-  // Nothing finished for the user to come back to: they stopped it, from the tab.
+  await session.query.interrupt()
+  // Do not enable another send until the SDK has acknowledged cancellation.
   setRunning(session, false, null)
-  try {
-    await session.query.interrupt()
-  } catch (error) {
-    console.error('Failed to interrupt a Claude session:', error)
-  }
 }
 
 /**
@@ -1166,7 +1183,8 @@ export async function claudeModels(tabId: string): Promise<ClaudeModel[]> {
         label: modelName(resolved, model.displayName),
         resolved,
         description: model.description,
-        supportsEffort: model.supportsEffort !== false
+        supportsEffort: model.supportsEffort !== false,
+        efforts: model.supportedEffortLevels
       })
     }
     return rows
@@ -1183,7 +1201,7 @@ export async function claudeModels(tabId: string): Promise<ClaudeModel[]> {
 
 /** Holds events for replay and queues them for the views. */
 function record(session: Session, events: ClaudeEvent[]): void {
-  session.replay.push(...events)
+  appendReplay(session.replay, events)
   if (session.replay.length > MAX_REPLAY_EVENTS) {
     session.replay.splice(0, session.replay.length - MAX_REPLAY_EVENTS)
   }
@@ -1255,29 +1273,6 @@ function nameTab(session: Session, title: string): void {
 }
 
 // ---------------------------------------------------------------------------
-// Showing thinking
-// ---------------------------------------------------------------------------
-
-/**
- * Whether the views draw the model's thinking along with its answer.
- *
- * One preference for every tab rather than one per tab: it is a question about
- * how the reader likes to read, not about any one conversation. Kept in the
- * extension's storage, and pushed to every view when it changes so the tabs
- * warm behind this one follow along.
- */
-const THINKING_KEY = 'thinking'
-
-async function showsThinking(): Promise<boolean> {
-  return (await context().storage.get<boolean>(THINKING_KEY)) !== false
-}
-
-export async function setShowsThinking(show: boolean): Promise<void> {
-  await context().storage.set(THINKING_KEY, show)
-  for (const session of sessions.values()) post(session, { type: 'thinking', show })
-}
-
-// ---------------------------------------------------------------------------
 // Ending one
 // ---------------------------------------------------------------------------
 
@@ -1288,6 +1283,7 @@ export async function setShowsThinking(show: boolean): Promise<void> {
 export function destroyClaude(tabId: string): void {
   // One still starting sees this and stops itself; see `open`.
   starting.delete(tabId)
+  generations.delete(tabId)
   const session = sessions.get(tabId)
   if (!session) return
   sessions.delete(tabId)
@@ -1298,7 +1294,7 @@ export function destroyClaude(tabId: string): void {
   settleAll(session, 'cancel')
   session.close()
   try {
-    void session.query.interrupt()
+    session.query.close()
   } catch {
     // Already gone; nothing to stop.
   }

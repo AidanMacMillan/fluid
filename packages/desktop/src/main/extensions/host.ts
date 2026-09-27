@@ -15,6 +15,7 @@ import type {
   TabTypeInfo
 } from '@fluid/sdk'
 import claudeCode from '@fluid/extension-claude-code'
+import codex from '@fluid/extension-codex'
 import html from '@fluid/extension-html'
 import image from '@fluid/extension-image'
 import pdf from '@fluid/extension-pdf'
@@ -115,7 +116,7 @@ import {
  * user's approval is listed without being started.
  */
 
-const BUILT_IN: Extension[] = [slack, claudeCode, vscode, terminal, image, video, html, pdf]
+const BUILT_IN: Extension[] = [slack, claudeCode, codex, vscode, terminal, image, video, html, pdf]
 
 /** The installed extensions' manifests, read before anything else here needs them. */
 function scan(): ReturnType<typeof scanInstalled> {

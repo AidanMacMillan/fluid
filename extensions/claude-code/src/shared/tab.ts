@@ -63,6 +63,8 @@ export type ClaudeTabPayload = {
    * drifts. What this tab has to remember is which of those to pick up.
    */
   sessionId?: string
+  /** Attachment directories retained from parent conversations. */
+  attachmentTabs?: string[]
   /**
    * A first turn to send as soon as the session starts, for a tab opened with a
    * question already asked (Ask Claude, in the new-task panel). Cleared once

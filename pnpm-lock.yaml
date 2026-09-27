@@ -38,15 +38,34 @@ importers:
       '@anthropic-ai/claude-agent-sdk':
         specifier: 0.3.278
         version: 0.3.278(@anthropic-ai/sdk@0.128.0(zod@4.6.5))(@modelcontextprotocol/sdk@1.30.1(supports-color@10.2.2)(zod@4.6.5))(zod@4.6.5)
+      '@fluid/agent-core':
+        specifier: workspace:*
+        version: link:../../packages/agent-core
       '@fluid/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
-      '@humanspeak/svelte-markdown':
-        specifier: ^1.9.1
-        version: 1.9.2(svelte@5.57.1(@typescript-eslint/types@8.70.1))
-      zod:
-        specifier: ^4.6.5
-        version: 4.6.5
+    devDependencies:
+      '@types/node':
+        specifier: ^22.19.1
+        version: 22.20.4
+      svelte:
+        specifier: ^5.45.6
+        version: 5.57.1(@typescript-eslint/types@8.70.1)
+      svelte-check:
+        specifier: ^4.3.4
+        version: 4.7.6(picomatch@4.0.7)(svelte@5.57.1(@typescript-eslint/types@8.70.1))(typescript@5.9.3)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
+  extensions/codex:
+    dependencies:
+      '@fluid/agent-core':
+        specifier: workspace:*
+        version: link:../../packages/agent-core
+      '@fluid/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
     devDependencies:
       '@types/node':
         specifier: ^22.19.1
@@ -194,6 +213,34 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
+  packages/agent-core:
+    dependencies:
+      '@fluid/sdk':
+        specifier: workspace:*
+        version: link:../sdk
+      '@humanspeak/svelte-markdown':
+        specifier: ^1.9.1
+        version: 1.9.2(svelte@5.57.1(@typescript-eslint/types@8.70.1))
+      '@modelcontextprotocol/sdk':
+        specifier: 1.30.1
+        version: 1.30.1(supports-color@10.2.2)(zod@4.6.5)
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+    devDependencies:
+      '@types/node':
+        specifier: ^22.19.1
+        version: 22.20.4
+      svelte:
+        specifier: ^5.45.6
+        version: 5.57.1(@typescript-eslint/types@8.70.1)
+      svelte-check:
+        specifier: ^4.3.4
+        version: 4.7.6(picomatch@4.0.7)(svelte@5.57.1(@typescript-eslint/types@8.70.1))(typescript@5.9.3)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
   packages/app:
     dependencies:
       '@fluid/extension-slack':
@@ -242,9 +289,15 @@ importers:
       '@electron-toolkit/utils':
         specifier: ^4.0.0
         version: 4.0.0(electron@44.4.5(supports-color@10.2.2))
+      '@fluid/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
       '@fluid/extension-claude-code':
         specifier: workspace:*
         version: link:../../extensions/claude-code
+      '@fluid/extension-codex':
+        specifier: workspace:*
+        version: link:../../extensions/codex
       '@fluid/extension-html':
         specifier: workspace:*
         version: link:../../extensions/html

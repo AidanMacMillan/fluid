@@ -12,6 +12,7 @@ import {
   type TaskTypeInfo
 } from '@fluid/sdk'
 import claudeCodeRenderer from '@fluid/extension-claude-code/renderer'
+import codexRenderer from '@fluid/extension-codex/renderer'
 import slackRenderer from '@fluid/extension-slack/renderer'
 import terminalRenderer from '@fluid/extension-terminal/renderer'
 import vscodeRenderer from '@fluid/extension-vscode/renderer'
@@ -39,6 +40,7 @@ const RENDERERS: RendererExtension<ExtensionComponent>[] = [
   terminalRenderer as RendererExtension<ExtensionComponent>,
   slackRenderer as RendererExtension<ExtensionComponent>,
   claudeCodeRenderer as RendererExtension<ExtensionComponent>,
+  codexRenderer as RendererExtension<ExtensionComponent>,
   vscodeRenderer as RendererExtension<ExtensionComponent>
 ]
 

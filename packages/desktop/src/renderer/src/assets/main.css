@@ -20,6 +20,7 @@
 /* And the SDK, for the one list of icons it holds: the glyphs a task can wear
    (see task-icons.ts there), which the app draws but extensions choose from. */
 @source '../../../../../sdk/src';
+@source '../../../../../agent-core/src';
 
 @theme {
   /* Keep in sync with TITLE_BAR_HEIGHT in src/main/index.ts */
