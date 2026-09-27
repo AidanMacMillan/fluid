@@ -7,6 +7,7 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { loader, root } from './agents/load.mjs'
 const load = loader()
 const { AgentTranscript } = load('packages/agent-core/src/views/lib/transcript.svelte.ts')
+const { agentPreview } = load('packages/agent-core/src/views/lib/preview.ts')
 const { appendReplay } = load('packages/agent-core/src/main/replay.ts')
 const { CodexEventMapper } = load('extensions/codex/src/main/events.ts')
 const { CodexTransport } = load('extensions/codex/src/main/transport.ts')
@@ -19,6 +20,40 @@ const until = async (predicate) => {
   }
   assert.fail('Timed out waiting for test state')
 }
+
+test('message previews omit rich content and unknown markers while keeping surrounding text', () => {
+  const visualization = 'visualize{"path":"/work/chart.html"}'
+  const unknown = 'future-widget{"data":"internal payload"}'
+  const malformed = 'unknownnot json'
+  const fence = '```fluid-visualization\n{"path":"/work/chart.html"}\n```'
+  for (const content of [visualization, unknown, malformed, fence]) {
+    assert.equal(agentPreview(`Before\n${content}\nAfter`), 'Before After')
+    assert.equal(agentPreview(content), '')
+  }
+  assert.equal(agentPreview(`One${unknown}two${malformed}three`), 'One two three')
+})
+
+test('message previews hide partial markers throughout streaming and after replay', () => {
+  const marker = 'unrecognized-widget{"data":"private metadata"}'
+  for (let i = 1; i <= marker.length; i++) {
+    const source = `Readable text\n${marker.slice(0, i)}`
+    assert.equal(agentPreview(source, true), 'Readable text')
+    assert.equal(agentPreview(source, false), 'Readable text')
+  }
+  assert.equal(agentPreview('Before\n```fluid-visualization\n{"path":', true), 'Before')
+})
+
+test('message previews preserve ordinary prose, code and unfamiliar text', () => {
+  for (const source of [
+    'Some unfamiliar message type',
+    'Use `Array.from(values)` here.',
+    '{"path":"/work/chart.html","custom":true}',
+    'Emoji 🐕 and Unicode café 日本語',
+    '```json\n{"custom":true}\n```'
+  ]) {
+    assert.equal(agentPreview(source), source.replace(/\s+/g, ' '))
+  }
+})
 
 test('streaming and replay converge, including final corrections and late tool results', () => {
   const events = [
