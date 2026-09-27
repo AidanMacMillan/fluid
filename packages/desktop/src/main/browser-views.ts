@@ -766,9 +766,8 @@ export type HostReveal = 'ready' | 'loading' | 'none'
 
 /**
  * Brings the app's window to the front — out of the dock, off another desktop,
- * from behind whatever the user was doing. For the moments the app is asking
- * for the user rather than the other way round: clicking a notification, so
- * far.
+ * from behind whatever the user was doing: a Dock click, a second launch, or
+ * a notification asking for the user's attention.
  *
  * What it answers with is what the caller may do next. Anything sent to a
  * window that is still loading is sent to a renderer with no listeners yet and
