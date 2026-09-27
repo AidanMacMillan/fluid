@@ -1,3 +1,4 @@
+import type { SidebarPosition } from '../shared/appearance'
 import { BrowserWindow, ipcMain, type Rectangle } from 'electron'
 import { listProjects } from './db/projects'
 import * as projectsApi from './api/projects'
@@ -167,7 +168,9 @@ export function registerIpcHandlers(): void {
   ipcMain.on('browser:setBounds', (_e, tabId: string, bounds: MeasuredBounds) =>
     setBrowserViewBounds(tabId, bounds)
   )
-  ipcMain.on('browser:watchPeekZone', (_e, width: number) => watchPeekZone(width))
+  ipcMain.on('browser:watchPeekZone', (_e, width: number, side: SidebarPosition) =>
+    watchPeekZone(width, side)
+  )
   ipcMain.on('browser:destroy', (_e, tabId: string) => destroyBrowserView(tabId))
   ipcMain.on('browser:goBack', (_e, tabId: string) => goBack(tabId))
   ipcMain.on('browser:goForward', (_e, tabId: string) => goForward(tabId))

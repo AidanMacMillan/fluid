@@ -1,3 +1,4 @@
+import type { SidebarPosition } from '../shared/appearance'
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type {
@@ -247,14 +248,15 @@ const api = {
     },
     /**
      * Asks to be told when the pointer comes within `width` pixels of the
-     * page's leading edge, and stops asking at zero.
+     * window's chosen sidebar edge, and stops asking at zero.
      *
      * The hover the renderer cannot feel for itself: a page is a native view
      * stacked above it, so a pointer inside the page's rect reaches no element
      * in this document at all. The main process reads the crossing off the
      * page's own input and sends it back through `onPeek`.
      */
-    watchPeekZone: (width: number): void => ipcRenderer.send('browser:watchPeekZone', width),
+    watchPeekZone: (width: number, side: SidebarPosition = 'left'): void =>
+      ipcRenderer.send('browser:watchPeekZone', width, side),
     /** Discards a closed tab's page for good. */
     destroy: (tabId: string): void => ipcRenderer.send('browser:destroy', tabId),
     /** Navigation for the chrome drawn above the page. */

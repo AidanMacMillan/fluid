@@ -137,7 +137,7 @@
 <div class="flex h-screen flex-col glass-scrim text-ink-100 text-on-glass">
   <TopBar />
   {#if workspace.ready}
-    <div class="flex min-h-0 flex-1">
+    <div class="flex min-h-0 flex-1" class:flex-row-reverse={workspace.sidebarPosition === 'right'}>
       <SidebarDock />
       <div class="flex min-w-0 flex-1">
         <BrowserSurface />
