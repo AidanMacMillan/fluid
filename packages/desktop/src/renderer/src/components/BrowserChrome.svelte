@@ -1,10 +1,11 @@
 <script lang="ts">
   import { untrack } from 'svelte'
+  import { isWebAddress } from '@fluid/sdk'
 
   import type { Tab } from '../../../main/db/schema'
   import { profileById } from '../../../main/profiles'
   import { PROFILE_SWATCH } from '../lib/profile-colors'
-  import { displayUrl, resolveInput } from '../lib/urls'
+  import { resolveInput } from '../lib/urls'
   import { workspace } from '../lib/workspace.svelte'
   import IconButton from './IconButton.svelte'
 
@@ -124,16 +125,39 @@
   /** What is in the field. Seeded from the full address, scheme and all — that
       is the form worth editing, and the one worth pasting over. */
   let draft = $state('')
+  let addressInput: HTMLInputElement
 
-  /** Focus and select the whole address the moment the field appears — so
-      typing replaces it and a paste lands over it, in one gesture. */
-  function autoselect(node: HTMLInputElement): void {
-    node.focus()
-    node.select()
-  }
+  // Navigation reaches the native view asynchronously. Keep the submitted
+  // address until it reports the new URL (including redirects) or finishes.
+  let submitted = $state<{
+    tabId: string
+    url: string
+    previousUrl: string
+    started: boolean
+  } | null>(null)
+  const address = $derived(submitted?.tabId === tab.id ? submitted.url : url)
+  const visibleAddress = $derived(editing ? draft : address)
+  const suffixStart = $derived(visibleAddress.search(/[?#]/))
+  const addressMain = $derived(
+    suffixStart < 0 ? visibleAddress : visibleAddress.slice(0, suffixStart)
+  )
+  const addressSuffix = $derived(suffixStart < 0 ? '' : visibleAddress.slice(suffixStart))
+
+  $effect(() => {
+    if (!submitted) return
+    if (
+      submitted.tabId !== tab.id ||
+      url !== submitted.previousUrl ||
+      (submitted.started && !loading)
+    ) {
+      submitted = null
+    } else if (loading) {
+      submitted.started = true
+    }
+  })
 
   function beginEditing(): void {
-    draft = url
+    draft = address
     editingTabId = tab.id
   }
 
@@ -146,8 +170,8 @@
   let copiedTimer: ReturnType<typeof setTimeout> | undefined
 
   async function copyUrl(): Promise<void> {
-    if (!url) return
-    await navigator.clipboard.writeText(url)
+    if (!address) return
+    await navigator.clipboard.writeText(address)
     copiedTabId = tab.id
     clearTimeout(copiedTimer)
     copiedTimer = setTimeout(() => (copiedTabId = null), 1200)
@@ -155,10 +179,19 @@
 
   function stopEditing(): void {
     editingTabId = null
+    addressInput?.blur()
   }
+
+  $effect(() => {
+    const currentTabId = tab.id
+    if (untrack(() => editingTabId !== null && editingTabId !== currentTabId)) stopEditing()
+  })
 
   function commit(): void {
     const target = resolveInput(draft)
+    if (target && isWebAddress(target)) {
+      submitted = { tabId: tab.id, url: target, previousUrl: url, started: false }
+    }
     stopEditing()
     if (target) api.navigate(tab.id, target)
   }
@@ -168,8 +201,11 @@
   // it, and going there instead would navigate on every stray click. Enter is
   // the only thing that loads anything.
   function onKeydown(event: KeyboardEvent): void {
+    if (event.isComposing || (event.key !== 'Enter' && event.key !== 'Escape')) return
+    event.preventDefault()
+    event.stopPropagation()
     if (event.key === 'Enter') commit()
-    else if (event.key === 'Escape') stopEditing()
+    else stopEditing()
   }
 
   /**
@@ -195,6 +231,10 @@
     else await workspace.reopenInProfile(tab.id, choice.profile)
   }
 </script>
+
+<!-- A native browser view can take window focus without blurring the active
+     DOM element. Leaving the renderer must discard an address draft too. -->
+<svelte:window onblur={stopEditing} />
 
 <!-- Back/forward/reload sit in the flow on the left; the address is taken out of
      it and centred on the bar itself, so the controls' width never pulls it off
@@ -252,30 +292,42 @@
       class="pointer-events-auto"
       onclick={() => void copyUrl()}
     />
-    {#if editing}
+    <!-- One native input keeps pointer placement and drag-selection intact.
+         Size from the visible text, so typing grows or shrinks the field while
+         focusing alone leaves its width unchanged.
+         Keep the full URL visible in every state: revealing a scheme on focus
+         would shift the text underneath the initial click. -->
+    <div class="group/address pointer-events-auto relative min-w-0 text-xs">
+      <!-- The sizing text also paints the idle address. Let the input paint
+           its own text while editing so selection and horizontal scrolling
+           remain native. Both layers use the same text and font metrics.
+           The input transitions only its background and focus ring: fading
+           its text from transparent would leave a gap when this layer hides. -->
+      <span
+        aria-hidden="true"
+        class="pointer-events-none relative z-10 block overflow-hidden px-2 py-0.5 whitespace-pre text-ink-400 select-none group-hover/address:text-ink-200 {editing
+          ? 'invisible'
+          : ''}"
+      >
+        {addressMain || '\u200b'}<span class="opacity-60">{addressSuffix}</span>
+      </span>
       <input
-        use:autoselect
-        bind:value={draft}
+        bind:this={addressInput}
+        value={visibleAddress}
+        onfocus={beginEditing}
+        oninput={(event) => (draft = event.currentTarget.value)}
         onblur={stopEditing}
         onkeydown={onKeydown}
+        title={address}
         spellcheck="false"
         autocomplete="off"
         autocapitalize="off"
         aria-label="Address"
-        class="pointer-events-auto w-full max-w-md cursor-text rounded-md bg-white/15 px-2.5 py-0.5 text-center text-xs text-ink-50 ring-1 ring-white/20 outline-none"
+        class="absolute inset-0 size-full min-w-0 cursor-text rounded-md glass-control px-2 py-0.5 text-center transition-[background-color,box-shadow] outline-none selection:bg-accent/30 selection:text-ink-50 focus:bg-selected focus:ring-1 focus:ring-selected-edge {editing
+          ? 'text-ink-50'
+          : 'text-transparent'}"
       />
-    {:else}
-      <!-- Reports the address, and is the way in to changing it. The full
-           address is the tooltip: what is drawn is the readable form. -->
-      <button
-        type="button"
-        onclick={beginEditing}
-        title={url}
-        class="pointer-events-auto min-w-0 truncate rounded-md glass-control px-2 py-0.5 text-xs text-ink-400 hover:text-ink-200"
-      >
-        {displayUrl(url)}
-      </button>
-    {/if}
+    </div>
   </div>
 
   <!-- Across the foot of the bar, where every browser has taught people to look
