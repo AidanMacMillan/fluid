@@ -26,7 +26,9 @@
     "test:claude-cli": "node --test test/claude-cli.test.mjs",
     "test:haptics": "node --test test/haptics.test.mjs",
     "test:terminal": "node --test test/terminal.test.mjs",
-    "icons": "electron scripts/theme-icons.mjs"
+    "icons": "electron scripts/theme-icons.mjs",
+    "test:agents": "node --test test/agents.test.mjs test/agent-visualizations.test.mjs",
+    "test:visualizations": "node test/visualizations/run.mjs"
   },
   "dependencies": {
     "@fluid/haptics": "workspace:*",
@@ -49,7 +51,9 @@
     "electron-updater": "^6.8.9",
     "node-pty": "^1.1.0",
     "tldts-experimental": "^7.4.15",
-    "zod": "^4.6.5"
+    "zod": "^4.6.5",
+    "@fluid/agent-core": "workspace:*",
+    "@fluid/extension-codex": "workspace:*"
   },
   "devDependencies": {
     "@electron-toolkit/tsconfig": "^2.0.0",

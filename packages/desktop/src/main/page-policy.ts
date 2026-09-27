@@ -65,6 +65,13 @@ function policyFor(
 ): string {
   const sources = schemes.map((scheme) => `${scheme}:`).join(' ')
   const code = codeOrigins.join(' ')
+  const visualFrames =
+    schemes
+      .filter(
+        (scheme) => scheme === 'codex-visualization' || scheme === 'claude-code-visualization'
+      )
+      .map((scheme) => `${scheme}:`)
+      .join(' ') || "'none'"
   // The page an installed extension's main half runs in draws nothing, so it
   // is allowed nothing a page draws with: no frames, no workers, no plugins,
   // and nowhere to post a form or rebase its links to.
@@ -90,15 +97,16 @@ function policyFor(
     `style-src 'self' 'unsafe-inline' ${code}`,
     `font-src 'self' data: ${code}`,
     `img-src 'self' data: ${sources} ${code}`,
-    `media-src 'self' ${sources}`
+    `media-src 'self' ${sources}`,
+    `frame-src ${visualFrames}`
   ]
   // An installed extension's views (the only pages given code origins) reach
-  // their own files, the file store and their schemes, and frame nothing.
+  // their own files, the file store and their schemes. Agent previews are the
+  // only frames: they have their own restrictive CSP and an opaque sandbox.
   if (codeOrigins.length > 0) {
     directives.push(
       `connect-src ${code} ${sources}`,
-      "frame-src 'none'",
-      "child-src 'none'",
+      "worker-src 'none'",
       "object-src 'none'",
       "base-uri 'none'",
       "form-action 'none'"

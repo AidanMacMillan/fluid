@@ -15,9 +15,8 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.3.278",
-    "@humanspeak/svelte-markdown": "^1.9.1",
     "@fluid/sdk": "workspace:*",
-    "zod": "^4.6.5"
+    "@fluid/agent-core": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

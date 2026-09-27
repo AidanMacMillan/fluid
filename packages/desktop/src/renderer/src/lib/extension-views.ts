@@ -13,6 +13,7 @@ export const EXTENSION_VIEWS: Record<string, () => Promise<ExtensionViews>> = {
   slack: () => import('@fluid/extension-slack/views').then((module) => module.default),
   'claude-code': () =>
     import('@fluid/extension-claude-code/views').then((module) => module.default),
+  codex: () => import('@fluid/extension-codex/views').then((module) => module.default),
   terminal: () => import('@fluid/extension-terminal/views').then((module) => module.default),
   image: () => import('@fluid/extension-image/views').then((module) => module.default),
   video: () => import('@fluid/extension-video/views').then((module) => module.default)
