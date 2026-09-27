@@ -1,7 +1,7 @@
 import { app, session, shell, BrowserWindow, dialog } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import { registerHostWindow, sameDocument, sendToHost } from './browser-views'
+import { registerHostWindow, revealHost, sameDocument, sendToHost } from './browser-views'
 import { startClipboardCapture, stopClipboardCapture } from './clipboard-capture'
 import { closeDatabase, initDatabase } from './db/client'
 import { clearStaleActivity } from './db/tabs'
@@ -183,13 +183,6 @@ if (!app.requestSingleInstanceLock()) {
   app.exit(is.dev ? 1 : 0)
 }
 
-app.on('second-instance', () => {
-  const [existing] = BrowserWindow.getAllWindows()
-  if (!existing) return
-  if (existing.isMinimized()) existing.restore()
-  existing.focus()
-})
-
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
@@ -266,11 +259,14 @@ app.whenReady().then(async () => {
   createWindow()
   registerAutoUpdater()
 
-  app.on('activate', function () {
-    // On macOS it's common to re-create a window in the app when the
-    // dock icon is clicked and there are no other windows open.
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
-  })
+  // A Dock click must reveal the main window even when a miniplayer is still
+  // visible. Counting windows leaves a hidden or minimized host untouched,
+  // and choosing the first window can focus a settings panel instead.
+  const activateMainWindow = (): void => {
+    if (revealHost() === 'none') createWindow()
+  }
+  app.on('activate', activateMainWindow)
+  app.on('second-instance', activateMainWindow)
 })
 
 // Quit when all windows are closed, except on macOS. There, it's common
