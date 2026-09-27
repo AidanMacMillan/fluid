@@ -41,18 +41,9 @@
        between them and the first button. The trailing edge has no furniture to
        clear, so it pads itself. -->
   <div class="titlebar-safe-area flex h-full items-center gap-1 pr-2">
-    <!-- Filled while the sidebar is docked, outline once it is collapsed. The
-         state it reads is `sidebarCollapsed`, not `sidebarOut`: a peek is the
-         sidebar leaning out under the pointer and going away again, so the
-         icon would otherwise flip back and forth without anything having been
-         toggled. -->
-    <IconButton
-      icon={workspace.sidebarCollapsed
-        ? 'icon-[ph--sidebar-simple]'
-        : 'icon-[ph--sidebar-simple-fill]'}
-      label={workspace.sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
-      onclick={() => workspace.toggleSidebar()}
-    />
+    {#if workspace.sidebarPosition === 'left'}
+      {@render sidebarToggle()}
+    {/if}
 
     <!-- The strip and the new-task button share one flexible span: the tablist
          takes only what its tabs need, so the button sits against the last tab
@@ -135,5 +126,24 @@
       label="Settings"
       onclick={() => window.api.settingsWindow.open()}
     />
+    {#if workspace.sidebarPosition === 'right'}
+      {@render sidebarToggle()}
+    {/if}
   </div>
 </header>
+
+{#snippet sidebarToggle()}
+  <!-- Filled while the sidebar is docked, outline once it is collapsed. The
+         state it reads is `sidebarCollapsed`, not `sidebarOut`: a peek is the
+         sidebar leaning out under the pointer and going away again, so the
+         icon would otherwise flip back and forth without anything having been
+         toggled. -->
+  <IconButton
+    class={workspace.sidebarPosition === 'right' ? '[&>span]:-scale-x-100' : ''}
+    icon={workspace.sidebarCollapsed
+      ? 'icon-[ph--sidebar-simple]'
+      : 'icon-[ph--sidebar-simple-fill]'}
+    label={workspace.sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
+    onclick={() => workspace.toggleSidebar()}
+  />
+{/snippet}

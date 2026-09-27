@@ -284,16 +284,14 @@ html[data-resize='grow'] {
    view itself cannot: the view is an opaque native layer with no way to cast a
    shadow onto the glass behind it.
 
-   The well runs to the window's right and bottom edges, so those two sides need
-   no curve of their own — the window's own rounded corner is what shapes the
-   page down there, which is the only thing that can: the native view is square
-   (Electron rounds all four corners or none, and a rounded top would notch the
-   address bar's underside). That leaves the top-left, the one corner that faces
-   into the window rather than sitting at its edge — and only while the sidebar
-   is out to face. With the sidebar away the well reaches the left edge too, and
-   the surface passes a 0 in so the corner squares off as the seam slides away. */
+   Only the top corner beside the sidebar needs a curve: the window shapes the
+   outer corners itself. The surface chooses the left or right corner to match
+   the sidebar, and passes zero for both while it is away so the corner squares
+   off as the seam slides away. The native view stays square; rounding its top
+   corners would notch the address bar's underside. */
 @utility glass-well {
-  border-radius: var(--well-radius-leading, var(--radius-surface)) 0 0 0;
+  border-radius: var(--well-radius-leading, var(--radius-surface)) var(--well-radius-trailing, 0px)
+    0 0;
   /* A shade deeper than the scrim the rest of the window sits on, so the tab's
      own area reads as set into the chrome rather than continuous with it. It is
      a tint over the scrim rather than a colour of its own: the glass still

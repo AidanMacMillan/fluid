@@ -32,6 +32,11 @@ import {
   type WorkspaceEvent
 } from '@fluid/sdk'
 import { tick } from 'svelte'
+import {
+  SIDEBAR_POSITION_SETTING,
+  sidebarPosition,
+  type SidebarPosition
+} from '../../../shared/appearance'
 import { strongerActivity } from './activity'
 import { fluid } from './api'
 import { extensions } from './extensions.svelte'
@@ -120,6 +125,9 @@ class Workspace {
    * the rest of what the window restores on launch.
    */
   sidebarCollapsed = $state(false)
+
+  /** Which window edge holds the sidebar. Shared with the appearance settings. */
+  sidebarPosition = $state<SidebarPosition>('left')
 
   /** How wide the sidebar is drawn, in CSS pixels. Persisted like the rest. */
   sidebarWidth = $state<number>(SIDEBAR_WIDTH.default)
@@ -278,6 +286,9 @@ class Workspace {
   hoveredSplitId = $state<string | null>(null)
 
   async load(): Promise<void> {
+    this.sidebarPosition = sidebarPosition(
+      await fluid.settings.get({ key: SIDEBAR_POSITION_SETTING })
+    )
     this.sidebarCollapsed =
       (await (fluid.settings.get({ key: SIDEBAR_COLLAPSED_KEY }) as Promise<boolean | null>)) ??
       false
@@ -1574,6 +1585,10 @@ class Workspace {
         return
 
       case 'setting.changed':
+        if (event.key === SIDEBAR_POSITION_SETTING) {
+          this.sidebarPosition = sidebarPosition(event.value)
+          this.sidebarPeeking = false
+        }
         if (event.key === SIDEBAR_COLLAPSED_KEY) this.sidebarCollapsed = event.value === true
         if (
           event.key === SIDEBAR_WIDTH_KEY &&

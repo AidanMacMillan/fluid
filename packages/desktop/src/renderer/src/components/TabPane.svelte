@@ -65,6 +65,8 @@
   let wellWidth = $state(0)
 
   $effect(() => {
+    // Changing sides moves the native view without changing its size.
+    void workspace.sidebarPosition
     const element = pageArea
     const well = pageWell
     if (!element || !well) return undefined

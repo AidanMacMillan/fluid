@@ -391,15 +391,16 @@
     void workspace.endSplitResize(place.divider, share)
   }
 
-  // The leading corner is only a corner while the sidebar is out. Away, the
-  // well meets the window's left edge and the curve would read as a nick out of
+  // The corner beside the sidebar is only rounded while the sidebar is out.
+  // Away, the well meets the window's edge and the curve would read as a nick out of
   // it, so it squares off — in step with the slide, not ahead of it.
   const leadingRadius = $derived(workspace.sidebarOut ? 'var(--radius-surface)' : '0px')
 </script>
 
 <main
   class="relative flex min-h-0 flex-1 flex-col overflow-hidden glass-well"
-  style:--well-radius-leading={leadingRadius}
+  style:--well-radius-leading={workspace.sidebarPosition === 'left' ? leadingRadius : '0px'}
+  style:--well-radius-trailing={workspace.sidebarPosition === 'right' ? leadingRadius : '0px'}
 >
   <div bind:this={stage} class="relative min-h-0 flex-1">
     {#each panes as pane (pane.tab.id)}

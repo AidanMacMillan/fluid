@@ -12,7 +12,7 @@
   /**
    * How wide the strip the pointer aims at to bring the sidebar back is. It
    * takes no width in the layout — a collapsed dock leaves the well flush
-   * against the window's left edge — so the strip overlays the well's own
+   * against the window's sidebar edge — so the strip overlays the well's own
    * leading edge instead.
    *
    * Only the part of it the renderer draws is a pointer target in the ordinary
@@ -38,13 +38,14 @@
   let wasOpen = false
   let reopenAfter = 0
 
+  const right = $derived(workspace.sidebarPosition === 'right')
   const collapsed = $derived(workspace.sidebarCollapsed)
   const open = $derived(workspace.sidebarOut)
 
   /**
    * What the dock is animating towards. The width lives here rather than on the
    * sidebar so one transition carries both halves of the motion: the dock's
-   * right edge is also the content well's left edge, so the well slides over in
+   * inner edge is also the content well's adjacent edge, so the well slides over in
    * the same breath the sidebar slides out.
    */
   const width = $derived(open ? workspace.sidebarWidth : 0)
@@ -109,7 +110,7 @@
    * the moment it is docked, so a page reports nothing nobody is waiting for.
    */
   $effect(() => {
-    window.api.browser.watchPeekZone(collapsed ? PEEK_STRIP_WIDTH : 0)
+    window.api.browser.watchPeekZone(collapsed ? PEEK_STRIP_WIDTH : 0, workspace.sidebarPosition)
     return () => window.api.browser.watchPeekZone(0)
   })
 
@@ -128,7 +129,7 @@
 
 <!-- The dock carries the sidebar and the pointer target both, so moving from
      one to the other crosses no gap and the peek survives the trip. Collapsed,
-     it has no width at all: the well runs to the window's left edge, and the
+     it has no width at all: the well runs to the window's sidebar edge, and the
      strip below reaches back over it. -->
 <div
   bind:this={dock}
@@ -144,13 +145,15 @@
        what hides it instead — its own layer, because the resize handle
        deliberately hangs past the dock's edge and must not be clipped with it. -->
   <div class="absolute inset-0 overflow-hidden">
-    <!-- Anchored to the dock's right edge rather than its left, so the whole
+    <!-- Anchored to the dock's inner edge, so the whole
          sidebar travels with the seam instead of being revealed in place while
          the content well slides away from it. The fade covers the last few
-         pixels, where a right-anchored panel would otherwise leave a sliver of
+         pixels, where the panel would otherwise leave a sliver of
          tab row showing in the collapsed strip. -->
     <div
-      class="absolute inset-y-0 right-0 transition-opacity duration-(--panel-duration) ease-glide motion-reduce:transition-none"
+      class="absolute inset-y-0 {right
+        ? 'left-0'
+        : 'right-0'} transition-opacity duration-(--panel-duration) ease-glide motion-reduce:transition-none"
       class:opacity-0={!open}
       style:width="{workspace.sidebarWidth}px"
       inert={!open}
@@ -167,7 +170,7 @@
          well comes later in the tree and would otherwise be painted over it. -->
     <div
       aria-hidden="true"
-      class="absolute inset-y-0 left-0 z-10"
+      class="absolute inset-y-0 z-10 {right ? 'right-0' : 'left-0'}"
       style:width="{PEEK_STRIP_WIDTH}px"
       onmouseenter={show}
       onmouseleave={hide}
@@ -183,7 +186,8 @@
          pointer finds. -->
     <ResizeHandle
       label="Resize sidebar"
-      class="absolute inset-y-0 -right-1 z-10 w-2"
+      class="absolute inset-y-0 z-10 w-2 {right ? '-left-1' : '-right-1'}"
+      factor={right ? -1 : 1}
       width={workspace.sidebarWidth}
       min={SIDEBAR_WIDTH.min}
       max={SIDEBAR_WIDTH.max}

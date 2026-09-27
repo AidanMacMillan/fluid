@@ -1,3 +1,4 @@
+import type { SidebarPosition } from '../shared/appearance'
 import {
   BrowserWindow,
   WebContentsView,
@@ -588,7 +589,7 @@ function followWindow(): void {
 }
 
 /**
- * How wide the band down the window's left edge is that counts as the pointer
+ * How wide the band down the window's sidebar edge is that counts as the pointer
  * reaching for a sidebar that is away, in window content pixels. Zero means
  * nobody is asking, which is the state whenever the sidebar is docked.
  *
@@ -598,6 +599,7 @@ function followWindow(): void {
  * that is over it. See `watchPeekZone`.
  */
 let peekZone = 0
+let peekSide: SidebarPosition = 'left'
 
 /**
  * Whether the pointer was last seen inside that band. Only the crossings are
@@ -607,7 +609,7 @@ let inPeekZone = false
 
 /**
  * Asks to be told when the pointer is within `width` pixels of the window's
- * left edge over an attached page, and stops asking at zero.
+ * sidebar edge over an attached page, and stops asking at zero.
  *
  * This is the hover the renderer cannot feel for itself. A native view takes
  * every pointer event inside its rect, so a strip of renderer laid under the
@@ -618,7 +620,9 @@ let inPeekZone = false
  * is read off the page's stream and handed back to the renderer as the event
  * it would have had if the page were not in the way.
  */
-export function watchPeekZone(width: number): void {
+export function watchPeekZone(width: number, side: SidebarPosition = 'left'): void {
+  if (side !== peekSide) reportPeek(false)
+  peekSide = side
   peekZone = Math.max(0, width)
   // Turning the watch off is also the pointer leaving as far as the renderer is
   // concerned: whatever it was told last must not be left standing.
@@ -644,7 +648,7 @@ function reportPeek(inside: boolean): void {
  * so nothing here costs the page a click or a hover of its own. The coordinates
  * are the view's, in the same pixels the renderer measured its bounds in, so
  * they are carried to the window's by where the view sits. The activation band
- * stays at the window's left edge: following a page's moving edge would sweep
+ * stays at the window's sidebar edge: following a page's moving edge would sweep
  * the band under a stationary pointer as the sidebar closes and reopen it.
  *
  * The one place this cannot see is a cross-origin iframe: it is a widget of its
@@ -678,7 +682,10 @@ function watchPointer(webContents: WebContents, tabId: string): void {
     // Typed as the base event, which carries no position. The mouse kinds are
     // the ones that do, and this is one of them.
     const x = placement.bounds.x + (input as Electron.MouseInputEvent).x
-    reportPeek(x >= 0 && x < peekZone)
+    const window = hostWindow
+    if (!window || window.isDestroyed()) return
+    const width = window.getContentBounds().width
+    reportPeek(peekSide === 'right' ? x >= width - peekZone && x < width : x >= 0 && x < peekZone)
   })
 }
 

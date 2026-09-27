@@ -2,7 +2,7 @@
   import ExtensionInstaller from './components/ExtensionInstaller.svelte'
   import ExtensionRow from './components/ExtensionRow.svelte'
   import ExtensionSettings from './components/ExtensionSettings.svelte'
-  import ThemePicker from './components/ThemePicker.svelte'
+  import AppearanceSettings from './components/AppearanceSettings.svelte'
   import AdBlockingSettings from './components/AdBlockingSettings.svelte'
   import { extensions } from './lib/extensions.svelte'
 
@@ -17,15 +17,14 @@
    * picker rather than here. What is left is the settings that are the same
    * whichever project the app is in.
    *
-   * First the app's own: the extensions themselves, and the theme, which is
-   * the whole app's. Below those, a section for each running extension that
+   * First the app's own: extensions and appearance, shared across the app. Below those, a section for each running extension that
    * asked for one (see `Extension.settings`), which the extension draws
    * itself: the services it connects to, which are one account per service
    * however much work is open against them.
    */
   const SECTIONS = [
     { id: 'extensions', label: 'Extensions', icon: 'icon-[ph--puzzle-piece]' },
-    { id: 'themes', label: 'Themes', icon: 'icon-[ph--palette]' },
+    { id: 'appearance', label: 'Appearance', icon: 'icon-[ph--palette]' },
     { id: 'ad-blocking', label: 'Privacy', icon: 'icon-[ph--shield-check]' }
   ] as const
 
@@ -158,8 +157,8 @@
           <ExtensionRow {extension} />
         {/each}
       </div>
-    {:else if current.id === 'themes'}
-      <ThemePicker />
+    {:else if current.id === 'appearance'}
+      <AppearanceSettings />
     {:else if current.id === 'ad-blocking'}
       <AdBlockingSettings />
     {/if}
