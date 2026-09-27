@@ -132,6 +132,7 @@
      it has no width at all: the well runs to the window's sidebar edge, and the
      strip below reaches back over it. -->
 <div
+  role="presentation"
   bind:this={dock}
   class="relative flex shrink-0 transition-[width] duration-(--panel-duration) ease-glide motion-reduce:transition-none"
   style:width="{width}px"

@@ -153,6 +153,10 @@
   }
 </script>
 
+<!-- A focusable separator is an interactive window splitter: Tab focuses it
+     and the arrow keys resize the pane. Svelte classifies all separators as
+     noninteractive. https://www.w3.org/WAI/ARIA/apg/patterns/windowsplitter/ -->
+<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
 <div
   bind:this={handle}
   role="separator"

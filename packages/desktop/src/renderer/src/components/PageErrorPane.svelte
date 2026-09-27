@@ -30,7 +30,7 @@
    * anything else falls through to the general case, which is honest about
    * knowing no more than that the page did not load.
    */
-  const NET_ERRORS: Record<number, { title: string; body: string }> = {
+  const NET_ERRORS: Record<number, { title: string; body: string }> = $derived({
     [-2]: {
       title: 'This page did not load',
       body: 'The request failed before the page could be shown.'
@@ -91,14 +91,14 @@
       title: 'This connection is not private',
       body: `The secure connection to ${host} could not be trusted.`
     }
-  }
+  })
 
   /**
    * The error statuses worth naming. A response reaches this page only when its
    * body turned out to be empty, so these are the ones that arrive bare — the
    * gateway errors above all.
    */
-  const HTTP_ERRORS: Record<number, { title: string; body: string }> = {
+  const HTTP_ERRORS: Record<number, { title: string; body: string }> = $derived({
     [401]: {
       title: 'This page needs a sign-in',
       body: 'The site would not serve the page without credentials.'
@@ -132,7 +132,7 @@
       title: 'This site took too long',
       body: `A gateway in front of ${host} timed out waiting for it.`
     }
-  }
+  })
 
   const shown = $derived(
     (error.kind === 'net' ? NET_ERRORS[error.code] : HTTP_ERRORS[error.code]) ?? {

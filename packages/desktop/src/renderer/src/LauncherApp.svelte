@@ -806,7 +806,7 @@
              and the arrow keys got it there. -->
           <button
             type="button"
-            aria-selected={index === selected}
+            aria-current={index === selected}
             onmouseenter={() => (selected = index)}
             onclick={() => open(choice)}
             oncontextmenu={(event) => pick(choice, event)}

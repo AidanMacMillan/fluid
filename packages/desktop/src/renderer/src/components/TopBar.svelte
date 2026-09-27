@@ -54,6 +54,7 @@
          to a drop at the end. Each tab claims its own span first (see TaskTab),
          and this runs on what bubbles up unclaimed. -->
     <div
+      role="presentation"
       class="flex min-w-0 flex-1 items-center gap-1"
       ondragover={(event) => reorder.overRest(event, 'task', workspace.tasks.length)}
       ondragleave={(event) => reorder.leave(event)}
