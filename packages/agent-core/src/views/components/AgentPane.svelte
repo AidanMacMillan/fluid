@@ -18,6 +18,7 @@
     type AgentTabPayload
   } from '../../shared/tab'
   import { filesFrom, hasLeft, isFileDrag } from '../lib/drop'
+  import { agentPreview } from '../lib/preview'
   import { AgentTranscript } from '../lib/transcript.svelte'
   import AgentAside from './AgentAside.svelte'
   import AgentChrome from './AgentChrome.svelte'
@@ -554,9 +555,13 @@
         // something: the attachment is what that turn was.
         out.push({ id: row.id, speaker: 'user', label: label(entry.text) || 'Attached a file' })
       } else if (entry.kind === 'text' && !entry.thinking) {
-        out.push({ id: row.id, speaker: 'agent', label: label(entry.text) })
+        out.push({
+          id: row.id,
+          speaker: 'agent',
+          label: label(agentPreview(entry.text, !entry.done))
+        })
       } else if (entry.kind === 'proposal') {
-        out.push({ id: row.id, speaker: 'agent', label: label(entry.markdown) })
+        out.push({ id: row.id, speaker: 'agent', label: label(agentPreview(entry.markdown)) })
       }
     }
     return out
