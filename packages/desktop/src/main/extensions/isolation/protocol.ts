@@ -54,6 +54,7 @@ export type Registration =
         /** The payload's schema as JSON Schema; the main process checks payloads against it. */
         payloadSchema?: Record<string, unknown>
         view?: ViewDeclarationData
+        history?: { location?: string; sessionId?: string }
         hasPinnedUrl: boolean
         hasMenu: boolean
         hasOnStop: boolean

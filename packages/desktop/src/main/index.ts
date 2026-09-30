@@ -2,6 +2,7 @@ import { app, session, shell, BrowserWindow, dialog } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { registerHostWindow, revealHost, sameDocument, sendToHost } from './browser-views'
+import { registerHistoryCapture } from './history-capture'
 import { startClipboardCapture, stopClipboardCapture } from './clipboard-capture'
 import { closeDatabase, initDatabase } from './db/client'
 import { clearStaleActivity } from './db/tabs'
@@ -225,6 +226,7 @@ app.whenReady().then(async () => {
   registerExtensionViewIpc()
   registerInstalledExtensionsIpc()
   registerTeardown()
+  registerHistoryCapture()
   // Replaces Electron's default menu, whose Cmd+R reloaded this window — the
   // app's own interface — rather than the page the user was looking at.
   registerApplicationMenu()

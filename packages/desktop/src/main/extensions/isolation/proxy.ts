@@ -252,6 +252,10 @@ const registrationSchema = z.discriminatedUnion('kind', [
             })
           ])
           .optional(),
+        history: z
+          .object({ location: z.string().min(1), sessionId: z.string().min(1) })
+          .partial()
+          .optional(),
         hasPinnedUrl: z.boolean(),
         hasMenu: z.boolean(),
         hasOnStop: z.boolean(),
@@ -790,6 +794,7 @@ class Bridge {
           id: type.id,
           label: type.label,
           agentDescription: type.agentDescription,
+          history: type.history,
           payload,
           view,
           pinnedUrl: type.hasPinnedUrl

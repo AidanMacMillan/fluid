@@ -121,6 +121,15 @@ class Extensions {
     return view ? { ...view, host: hostFor(extensionId) } : undefined
   }
 
+  /** History keeps a known tab's icon even when its extension is disabled. */
+  tabIcon(type: string): string | undefined {
+    const dot = type.indexOf('.')
+    if (dot === -1) return undefined
+    return RENDERERS.find((renderer) => renderer.id === type.slice(0, dot))?.tabs?.[
+      type.slice(dot + 1)
+    ]?.icon
+  }
+
   /**
    * Whether tabs of `type` are drawn in a view of their own rather than here,
    * and which kind — which is only ever so while the extension that registered

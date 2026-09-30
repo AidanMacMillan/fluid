@@ -38,6 +38,57 @@ Registrations are removed on deactivation. Use `ctx.onDispose` for resources
 you manage, tab `onStop` to end running work, and `onClose` to remove data for a
 deleted tab. Validate RPC input before using it.
 
+## Record task history
+
+History belongs to the task where a visit happened. Browser main-frame navigations
+(including same-document navigation) are recorded automatically, excluding incognito
+and internal pages. Selecting a file or extension tab records a visit; selecting the
+same tab repeatedly without leaving it does not. History survives tab closure and app
+restarts, and remains with its original task when a tab moves. There is no automatic
+expiry; users can delete entries or clear a task's history, and deleting the task
+removes its history.
+
+Declare payload fields to identify visits to an extension tab. Only these references
+are copied, not its whole payload:
+
+```ts
+ctx.tabTypes.register({
+  id: 'session',
+  label: 'My tool',
+  history: { location: 'cwd', sessionId: 'sessionId' }
+})
+```
+
+Both fields are optional. `location` can name a working directory, folder, URL or
+other readable address. When a session ID arrives through `tabs.update`, the latest
+visit is enriched without another visit being added. Changing an already-known
+session or location while its tab is selected records a new visit.
+
+For other events, record entries explicitly from the main extension or a view's API:
+
+```ts
+await ctx.api.history.record({
+  taskId,
+  tabId, // optional; must belong to taskId
+  type: 'reviews.opened', // must start with the calling extension's ID + "."
+  label: 'Review',
+  title: 'Opened pull request #42',
+  location: 'https://github.com/example/project/pull/42',
+  metadata: { pullRequest: 42 }
+})
+```
+
+The host assigns the entry ID, timestamp and extension attribution. Metadata must be
+JSON and fit within 64 KB. Use `history.list({ taskId, query, limit, offset })` for
+newest-first search and pagination (default 100, maximum 200 per page),
+`history.delete({ taskId, id })`, or `history.clear({ taskId })`. Subscribe to
+`history.changed` or use `api.watch('history.list', { taskId }, listener)`.
+
+The task history panel opens from the sidebar's clock button, Cmd+Y on macOS, or Ctrl+H on other platforms. Browser
+entries reopen the recorded URL with its browsing profile. Other entries return to
+their tab while it remains in the task; after closure they retain readable visit
+references, without restarting terminals or recreating agent sessions.
+
 ## Add an interface
 
 Register a tab type with a `payload` schema and a `view`. Add

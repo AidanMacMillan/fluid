@@ -293,6 +293,7 @@ function contextFor(context: ActivateContext): ExtensionContext {
                       focusOnShow: view.focusOnShow,
                       drawsBar: view.drawsBar
                     },
+              history: type.history,
               hasPinnedUrl: type.pinnedUrl !== undefined,
               hasMenu: type.menu !== undefined,
               hasOnStop: type.onStop !== undefined,

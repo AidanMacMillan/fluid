@@ -381,45 +381,13 @@
       <span class="icon-[ph--clipboard-text] text-base" aria-hidden="true"></span>
     </button>
 
-    <!-- TODO: the task's own history, and the reason this sits here unwired
-         rather than being left out until it works — what goes in it is a wider
-         question than its name suggests, and the answer wants designing before
-         anything is built.
-
-         "Tab history" is the obvious reading: the tabs this task has held,
-         including the ones closed along the way, so that a page shut an hour ago
-         is a click away rather than a search. But the interesting version is the
-         whole of what the task has been through, in one column read backwards in
-         time — every address its browser tabs visited, not just the tabs
-         themselves; the files dropped in and downloaded; the terminals opened
-         and what directories they ended up in; what extensions pulled in; the
-         notes agents left; and the events the task itself is made of, such as a
-         routine opening it, a review being answered, or the task being settled.
-
-         That is the thing worth having: a task is a frame around some work, and
-         what nothing in the app can currently answer is "what did I actually do
-         in here". The clipboard history beside this is the first slice of that
-         same question — which is why the two belong together at the foot, and
-         why this one is worth holding the space for.
-
-         Open questions before it can be built: whether the underlying events are
-         written as they happen (a table of their own, like the clipboard's) or
-         reconstructed from what the tabs and routines already record, which is
-         only enough for some of the above; whether closed tabs are restorable
-         from it or only readable; and how far back it keeps, given a browser
-         tab's history alone would dwarf the clipboard's two hundred rows.
-
-         `disabled` rather than `inert`, dimmed the way IconButton dims its own
-         dead ends: the button is announced, and announced as unavailable, which
-         is the honest state — inert would drop it out of the accessibility tree
-         and leave a square only sighted users know is there. -->
     <button
       type="button"
-      disabled
-      aria-label="Tab history (not yet available)"
-      title="Tab history (not yet available)"
+      onclick={() => window.api.historyWindow.open()}
+      aria-label="Task history"
+      title="Task history"
       class="flex size-9 shrink-0 items-center justify-center rounded-lg glass-control
-             text-ink-500 disabled:pointer-events-none disabled:text-ink-600"
+             text-ink-500 hover:text-ink-200"
     >
       <span class="icon-[ph--clock-counter-clockwise] text-base" aria-hidden="true"></span>
     </button>

@@ -9,6 +9,7 @@ import type { Project, Space, Tab, TabFolder, Task, TaskNote } from './models'
  * are after the change, so a subscriber rarely has to ask for anything.
  */
 export type WorkspaceEvent =
+  | { type: 'history.changed'; taskId: string }
   | { type: 'space.created'; space: Space }
   | { type: 'space.updated'; space: Space }
   | { type: 'space.deleted'; space: Space }
@@ -75,6 +76,7 @@ export function taskIdsOf(event: WorkspaceEvent): string[] {
       return [event.tab.taskId]
     case 'tab.moved':
       return [event.tab.taskId, event.fromTaskId]
+    case 'history.changed':
     case 'tabs.reordered':
       return [event.taskId]
     case 'folder.created':

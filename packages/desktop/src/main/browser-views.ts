@@ -1,3 +1,4 @@
+import { visitPage, updatePageTitle } from './history-capture'
 import { destroySidebarPanel, raiseSidebarPanel } from './sidebar-panel'
 import type { SidebarPosition } from '../shared/appearance'
 import {
@@ -1373,7 +1374,10 @@ function createView(
     markProgress(tabId, LOAD_PARSED)
     republish()
   })
-  webContents.on('page-title-updated', republish)
+  webContents.on('page-title-updated', (_event, title) => {
+    republish()
+    if (kind === 'page') updatePageTitle(tabId, webContents.getURL(), title)
+  })
   // The icon deliberately survives a navigation: `page-favicon-updated` is what
   // retires it (see `adoptFavicon`), and that event does not fire again while a
   // tab stays on one site. Clearing here would leave every page after a site's
@@ -1381,6 +1385,7 @@ function createView(
   // Also where an error status is caught: `did-navigate` is the only event that
   // reports one (see the `did-finish-load` handler below, which acts on it).
   webContents.on('did-navigate', (_event, _navigatedUrl, statusCode, statusText) => {
+    if (kind === 'page') visitPage(tabId, _navigatedUrl)
     pendingStatus = statusCode >= 400 ? { code: statusCode, detail: statusText } : null
     markProgress(tabId, LOAD_COMMITTED)
     // The document the bar was searching has been replaced, so its matches are
@@ -1392,7 +1397,10 @@ function createView(
     republish()
   })
   // Same document, so the icon still stands.
-  webContents.on('did-navigate-in-page', republish)
+  webContents.on('did-navigate-in-page', (_event, url, isMainFrame) => {
+    republish()
+    if (kind === 'page' && isMainFrame) visitPage(tabId, url, webContents.getTitle())
+  })
   webContents.on('page-favicon-updated', (_event, urls) => {
     void adoptFavicon(tabId, view, urls)
   })
@@ -1420,6 +1428,7 @@ function createView(
   // that body is the page — Chrome shows it, and so does this. Only when the
   // document turns out to be empty is there nothing to show but the status.
   webContents.on('did-finish-load', () => {
+    if (kind === 'page') updatePageTitle(tabId, webContents.getURL(), webContents.getTitle())
     const status = pendingStatus
     pendingStatus = null
     if (!status) return

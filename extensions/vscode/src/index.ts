@@ -39,6 +39,7 @@ export default defineExtension({
     ctx.tabTypes.register({
       id: 'editor',
       label: 'VS Code',
+      history: { location: 'folderPath' },
       payload,
       agentDescription:
         "A folder open in the user's own VS Code, for them to edit in: the real editor, with their extensions and settings.",
