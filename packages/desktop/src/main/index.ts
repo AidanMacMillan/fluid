@@ -2,6 +2,7 @@ import { app, session, shell, BrowserWindow, dialog } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { registerHostWindow, revealHost, sameDocument, sendToHost } from './browser-views'
+import { registerHistoryCapture } from './history-capture'
 import { startClipboardCapture, stopClipboardCapture } from './clipboard-capture'
 import { closeDatabase, initDatabase } from './db/client'
 import { clearStaleActivity } from './db/tabs'
@@ -78,18 +79,19 @@ function createWindow(): void {
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
+      // Native macOS rubber-band scrolling, consistent with pages and panels.
       scrollBounce: true
-      // No `scrollBounce` here, deliberately, and the omission is the setting:
-      // Electron ships it off. Rubber-band overscroll is how a *page* says it
-      // has run out, and the chrome is not a page — the sidebar and the tab
-      // strip are panes of a window, and bouncing them reads as the app coming
-      // loose from its own frame. Browser tabs are real pages and do ask for it
-      // (see `scrollBounce` in src/main/browser-views.ts); the asymmetry is the
-      // point.
     }
   })
   trackWindowAppearance(mainWindow, VIBRANCY_MATERIALS[0])
   trackWindowDensity(mainWindow)
+
+  mainWindow.on('enter-full-screen', () => {
+    mainWindow.webContents.send('window:fullscreen-changed', true)
+  })
+  mainWindow.on('leave-full-screen', () => {
+    mainWindow.webContents.send('window:fullscreen-changed', false)
+  })
 
   // Browser tabs render as native child views of this window's content view.
   registerHostWindow(mainWindow)
@@ -225,6 +227,7 @@ app.whenReady().then(async () => {
   registerExtensionViewIpc()
   registerInstalledExtensionsIpc()
   registerTeardown()
+  registerHistoryCapture()
   // Replaces Electron's default menu, whose Cmd+R reloaded this window — the
   // app's own interface — rather than the page the user was looking at.
   registerApplicationMenu()

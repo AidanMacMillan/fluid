@@ -93,6 +93,13 @@
     window.api.clipboard.setTask(task ? { id: task.id, title: task.title } : null)
   })
 
+  $effect(() => {
+    window.api.historyWindow.visit(
+      workspace.activeTab?.id ?? null,
+      workspace.activeTask?.id ?? null
+    )
+  })
+
   // Work a tab finished stops being news once the user has the tab open, and
   // the tab in front is open for as long as it is in front — so one that
   // finishes while it is there is seen as it finishes. See `TabActivity`.

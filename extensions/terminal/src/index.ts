@@ -58,6 +58,7 @@ export default defineExtension({
     ctx.tabTypes.register({
       id: 'shell',
       label: 'Terminal',
+      history: { location: 'cwd' },
       payload,
       agentDescription:
         'A shell for the user to work in. It is not a way for an agent to run commands of its own: whatever runs here, the agent does not see.',

@@ -66,6 +66,7 @@ export default defineConfig({
           launcher: resolve(__dirname, 'src/renderer/launcher.html'),
           project: resolve(__dirname, 'src/renderer/project.html'),
           clipboard: resolve(__dirname, 'src/renderer/clipboard.html'),
+          history: resolve(__dirname, 'src/renderer/history.html'),
           find: resolve(__dirname, 'src/renderer/find.html'),
           sidebar: resolve(__dirname, 'src/renderer/sidebar.html'),
           'split-drop': resolve(__dirname, 'src/renderer/split-drop.html'),

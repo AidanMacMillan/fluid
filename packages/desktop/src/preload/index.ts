@@ -19,6 +19,7 @@ import type { Project, Space } from '../main/db/schema'
 import type { ProjectMenuChoice, ProjectsState } from '../main/projects'
 import type { SpaceMenuChoice, SpaceRow } from '../main/spaces'
 import type { ClipboardTaskRef } from '../main/clipboard-capture'
+import type { HistoryContext } from '../main/history-window'
 import type { ClipboardContext } from '../main/clipboard-window'
 import type { WebViewReadiness } from '../main/extension-views'
 import type { InstallResult } from '../main/installed-extensions-ipc'
@@ -76,6 +77,14 @@ ipcRenderer.on('theme:changed', (_e, theme: string) => applyTheme(theme))
 
 // Custom APIs for renderer
 const api = {
+  window: {
+    isFullScreen: (): boolean => ipcRenderer.sendSync('window:fullscreen') as boolean,
+    onFullScreenChanged: (listener: (fullscreen: boolean) => void): (() => void) => {
+      const handler = (_e: unknown, fullscreen: boolean): void => listener(fullscreen)
+      ipcRenderer.on('window:fullscreen-changed', handler)
+      return () => ipcRenderer.off('window:fullscreen-changed', handler)
+    }
+  },
   appearance: {
     /** First-frame density, already loaded before the main window was created. */
     density: (): number => ipcRenderer.sendSync('appearance:density') as number
@@ -564,6 +573,14 @@ const api = {
       ipcRenderer.on('launcher:openTab', handler)
       return () => ipcRenderer.off('launcher:openTab', handler)
     }
+  },
+  historyWindow: {
+    visit: (tabId: string | null, taskId: string | null): void =>
+      ipcRenderer.send('history:visit', tabId, taskId),
+    open: (): void => ipcRenderer.send('historyWindow:open'),
+    close: (): void => ipcRenderer.send('historyWindow:close'),
+    resize: (height: number): void => ipcRenderer.send('historyWindow:resize', height),
+    context: (): Promise<HistoryContext | null> => ipcRenderer.invoke('historyWindow:context')
   },
   clipboard: {
     /**

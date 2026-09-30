@@ -649,6 +649,32 @@ export const extensionStorage = pgTable(
 )
 
 // ---------------------------------------------------------------------------
+// Task history
+// ---------------------------------------------------------------------------
+
+/** Durable references to visits and extension events, retained until cleared or the task is deleted. */
+export const historyEntries = pgTable(
+  'history_entries',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    taskId: uuid('task_id')
+      .notNull()
+      .references(() => tasks.id, { onDelete: 'cascade' }),
+    // Deliberately not a foreign key: closing or moving a tab preserves its visits.
+    tabId: uuid('tab_id'),
+    type: text('type').notNull(),
+    label: text('label').notNull(),
+    title: text('title').notNull(),
+    location: text('location'),
+    sessionId: text('session_id'),
+    extensionId: text('extension_id'),
+    metadata: jsonb('metadata').$type<Record<string, unknown>>().notNull().default({}),
+    visitedAt: timestamp('visited_at', { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [index('history_entries_task_time_idx').on(table.taskId, table.visitedAt, table.id)]
+)
+
+// ---------------------------------------------------------------------------
 // Site icons
 // ---------------------------------------------------------------------------
 
@@ -699,7 +725,8 @@ export const tasksRelations = relations(tasks, ({ one, many }) => ({
   notes: many(taskNotes),
   tabs: many(tabs),
   folders: many(tabFolders),
-  clipboardEntries: many(clipboardEntries)
+  clipboardEntries: many(clipboardEntries),
+  historyEntries: many(historyEntries)
 }))
 
 export const taskNotesRelations = relations(taskNotes, ({ one }) => ({
@@ -720,6 +747,10 @@ export const tabFoldersRelations = relations(tabFolders, ({ one, many }) => ({
   }),
   folders: many(tabFolders, { relationName: 'nested' }),
   tabs: many(tabs)
+}))
+
+export const historyEntriesRelations = relations(historyEntries, ({ one }) => ({
+  task: one(tasks, { fields: [historyEntries.taskId], references: [tasks.id] })
 }))
 
 export const clipboardEntriesRelations = relations(clipboardEntries, ({ one }) => ({

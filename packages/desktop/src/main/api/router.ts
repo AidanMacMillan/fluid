@@ -19,6 +19,7 @@ import { checkIsolatedCall } from './isolation-policy'
 import * as files from './files'
 import * as folders from './folders'
 import * as notes from './notes'
+import * as history from './history'
 import * as projects from './projects'
 import * as settings from './settings'
 import * as tabs from './tabs'
@@ -74,6 +75,12 @@ const handlers: Handlers = {
   'tasks.reorder': ({ projectId, ids }) => tasks.reorder(projectId, ids),
   'tasks.setActiveTab': ({ id, tabId }) => tasks.setActiveTab(id, tabId),
   'tasks.setSplits': ({ id, splits, activeTabId }) => tasks.setSplits(id, splits, activeTabId),
+
+  'history.list': (input) => history.list(input),
+  'history.record': (input, caller) =>
+    history.record(input, caller.kind === 'extension' ? caller.extensionId : null),
+  'history.delete': ({ taskId, id }) => history.remove(taskId, id),
+  'history.clear': ({ taskId }) => history.remove(taskId),
 
   'notes.list': ({ taskId }) => notes.list(taskId),
   'notes.get': ({ id }) => notes.get(id),

@@ -19,6 +19,7 @@ import {
   zoomOut
 } from './browser-views'
 import { openLauncherWindow } from './launcher-window'
+import { openHistoryWindow } from './history-window'
 import { openClipboardWindow } from './clipboard-window'
 import { openProjectWindow } from './project-window'
 import { isSettingsWindow } from './settings-window'
@@ -289,6 +290,14 @@ export function registerApplicationMenu(): void {
         // It does not collide with `pasteAndMatchStyle` above, which reads like
         // it should own this key and does not: Electron gives that role
         // Cmd+Option+Shift+V on macOS, leaving the plain shifted form free.
+        {
+          label: 'Task History…',
+          accelerator: process.platform === 'darwin' ? 'Cmd+Y' : 'Ctrl+H',
+          click: () => {
+            const host = getHostWindow()
+            if (host && host.isEnabled()) openHistoryWindow(host)
+          }
+        },
         { label: 'Clipboard History…', accelerator: 'CmdOrCtrl+Shift+V', click: openClipboard },
         { role: 'delete' },
         { role: 'selectAll' },

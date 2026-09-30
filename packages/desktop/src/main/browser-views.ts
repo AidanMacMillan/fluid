@@ -1,4 +1,5 @@
-import { destroySidebarPanel, raiseSidebarPanel } from './sidebar-panel'
+import { visitPage, updatePageTitle } from './history-capture'
+import { destroySidebarPanel, raiseSidebarPanel, suppressSidebarPanel } from './sidebar-panel'
 import type { SidebarPosition } from '../shared/appearance'
 import {
   BrowserWindow,
@@ -492,6 +493,44 @@ type Placement = { measured: MeasuredBounds; bounds: ViewBounds }
  */
 const attached = new Map<string, Placement>()
 
+/** HTML fullscreen belongs to a tab; native window fullscreen alone keeps the chrome. */
+let fullscreenTabId: string | null = null
+
+function leaveTabFullscreen(tabId: string): void {
+  if (fullscreenTabId !== tabId) return
+  fullscreenTabId = null
+  suppressSidebarPanel(false)
+  followWindow()
+}
+
+function enterTabFullscreen(tabId: string): void {
+  const window = hostWindow
+  const view = views.get(tabId)
+  if (!window || window.isDestroyed() || !view || !attached.has(tabId)) return
+  fullscreenTabId = tabId
+  reportPeek(false)
+  suppressSidebarPanel(true)
+  endFind(false)
+  hideZoomIndicator()
+  zoomTabId = null
+  window.contentView.addChildView(view)
+  followWindow()
+  view.webContents.focus()
+}
+
+/** Keep renderer measurements current while fullscreen overrides their presentation. */
+function layoutView(tabId: string, placement: Placement): void {
+  rebase(placement)
+  const view = views.get(tabId)
+  if (!view || view.webContents.isDestroyed()) return
+  view.setVisible(fullscreenTabId === null || fullscreenTabId === tabId)
+  if (fullscreenTabId === tabId && hostWindow && !hostWindow.isDestroyed()) {
+    const [width, height] = hostWindow.getContentSize()
+    placement.bounds = { x: 0, y: 0, width, height }
+  }
+  applyBounds(view, placement.bounds)
+}
+
 /**
  * The tab its task has in front — in a split, the pane the user is working in.
  * What the page shortcuts and the miniplayer mean by "the page", told by the
@@ -581,9 +620,7 @@ function rebase(placement: Placement): void {
  */
 function followWindow(): void {
   for (const [tabId, placement] of attached) {
-    rebase(placement)
-    const view = views.get(tabId)
-    if (view) applyBounds(view, placement.bounds)
+    layoutView(tabId, placement)
   }
   // Both overlays are positioned off a page rather than off the window, so
   // they have to be carried along with it.
@@ -661,7 +698,7 @@ function reportPeek(inside: boolean): void {
  */
 function watchPointer(webContents: WebContents, tabId: string): void {
   webContents.on('input-event', (_event, input) => {
-    if (peekZone === 0) return
+    if (peekZone === 0 || fullscreenTabId !== null) return
     const placement = attached.get(tabId)
     if (!placement) return
 
@@ -722,6 +759,10 @@ export function registerHostWindow(window: BrowserWindow): void {
   // leaving, and a miniplayer that appeared every time it happened would be
   // one more thing to dismiss rather than one less thing to lose.
   const offer = (): void => {
+    // On macOS `hide` also reports occlusion, including the temporary cover
+    // during a fullscreen transition. Only an actually hidden or minimized
+    // window means the user has left the page.
+    if (window.isDestroyed() || (window.isVisible() && !window.isMinimized())) return
     const front = frontTabId()
     if (front === null) return
     const view = views.get(front)
@@ -1264,6 +1305,13 @@ function createView(
   const { webContents } = view
   if (kind === 'page') adBlocker.attach(webContents)
 
+  // Electron handles the native window transition and Escape. The child view
+  // still needs to fill that window, including when it was already fullscreen.
+  webContents.on('enter-html-full-screen', () => enterTabFullscreen(tabId))
+  webContents.on('leave-html-full-screen', () => leaveTabFullscreen(tabId))
+  webContents.on('render-process-gone', () => leaveTabFullscreen(tabId))
+  webContents.on('destroyed', () => leaveTabFullscreen(tabId))
+
   // Zoom belongs to the tab, not the site. Chromium's default shares one level
   // between every page on a host in the same session, so zooming a page in one
   // task would quietly zoom that site in every other task on the same profile —
@@ -1373,7 +1421,10 @@ function createView(
     markProgress(tabId, LOAD_PARSED)
     republish()
   })
-  webContents.on('page-title-updated', republish)
+  webContents.on('page-title-updated', (_event, title) => {
+    republish()
+    if (kind === 'page') updatePageTitle(tabId, webContents.getURL(), title)
+  })
   // The icon deliberately survives a navigation: `page-favicon-updated` is what
   // retires it (see `adoptFavicon`), and that event does not fire again while a
   // tab stays on one site. Clearing here would leave every page after a site's
@@ -1381,6 +1432,7 @@ function createView(
   // Also where an error status is caught: `did-navigate` is the only event that
   // reports one (see the `did-finish-load` handler below, which acts on it).
   webContents.on('did-navigate', (_event, _navigatedUrl, statusCode, statusText) => {
+    if (kind === 'page') visitPage(tabId, _navigatedUrl)
     pendingStatus = statusCode >= 400 ? { code: statusCode, detail: statusText } : null
     markProgress(tabId, LOAD_COMMITTED)
     // The document the bar was searching has been replaced, so its matches are
@@ -1392,7 +1444,10 @@ function createView(
     republish()
   })
   // Same document, so the icon still stands.
-  webContents.on('did-navigate-in-page', republish)
+  webContents.on('did-navigate-in-page', (_event, url, isMainFrame) => {
+    republish()
+    if (kind === 'page' && isMainFrame) visitPage(tabId, url, webContents.getTitle())
+  })
   webContents.on('page-favicon-updated', (_event, urls) => {
     void adoptFavicon(tabId, view, urls)
   })
@@ -1420,6 +1475,7 @@ function createView(
   // that body is the page — Chrome shows it, and so does this. Only when the
   // document turns out to be empty is there nothing to show but the status.
   webContents.on('did-finish-load', () => {
+    if (kind === 'page') updatePageTitle(tabId, webContents.getURL(), webContents.getTitle())
     const status = pendingStatus
     pendingStatus = null
     if (!status) return
@@ -1705,8 +1761,7 @@ function attach(
     window.contentView.addChildView(view)
     raiseSidebarPanel()
   }
-  rebase(placement)
-  applyBounds(view, placement.bounds)
+  layoutView(tabId, placement)
   // The renderer re-sends `show` for every resize as well as for every tab
   // change, so this is the path a sidebar drag actually takes.
   moveOverlays()
@@ -1734,6 +1789,15 @@ export function hideBrowserView(tabId: string): void {
  * nothing to float.
  */
 function detachView(tabId: string, offerMiniplayer: boolean): void {
+  if (fullscreenTabId === tabId) {
+    const contents = views.get(tabId)?.webContents
+    if (contents && !contents.isDestroyed()) {
+      void contents
+        .executeJavaScript('document.fullscreenElement && document.exitFullscreen()')
+        .catch(() => undefined)
+    }
+    leaveTabFullscreen(tabId)
+  }
   // Before the early return, not after it: the pill belongs to the page it was
   // reporting on, and this is every way a page leaves the screen — a tab
   // switch, a file or terminal tab taking the pane, a failed navigation handing

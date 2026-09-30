@@ -1,4 +1,5 @@
 export * from './models'
+export * from './history'
 export * from './task-icons'
 export * from './splits'
 export * from './sidebar'

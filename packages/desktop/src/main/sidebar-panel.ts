@@ -14,15 +14,21 @@ let loaded: Promise<void> | undefined
 let host: BrowserWindow | undefined
 let state: SidebarPanelState | undefined
 let attached = false
+let suppressed = false
 let closing: ReturnType<typeof setTimeout> | undefined
 
 /** A real native overlay, so pages keep their viewport, input and live rendering. */
 function ensureView(): WebContentsView {
   if (view) return view
   const created = new WebContentsView({
-    webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false }
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      sandbox: false,
+      scrollBounce: true
+    }
   })
   created.setBackgroundColor('#00000000')
+  created.setVisible(!suppressed)
   created.webContents.on('will-navigate', (event) => event.preventDefault())
   created.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   view = created
@@ -45,6 +51,12 @@ export function publishSidebarEvent(event: WorkspaceEvent): void {
 
 export function raiseSidebarPanel(): void {
   if (attached && view && host && !host.isDestroyed()) host.contentView.addChildView(view)
+}
+
+/** A tab in HTML fullscreen covers the app, including its native hover panel. */
+export function suppressSidebarPanel(value: boolean): void {
+  suppressed = value
+  view?.setVisible(!value)
 }
 
 function position(): void {
@@ -99,10 +111,12 @@ export function updateSidebarPanel(window: BrowserWindow, next: SidebarPanelStat
         const bounds = panel.getBounds()
         const x = cursor.x - origin.x - bounds.x
         const y = cursor.y - origin.y - bounds.y
-        window.webContents.send('sidebar:report', {
-          kind: 'hover',
-          inside: x >= 0 && y >= 0 && x < bounds.width && y < bounds.height
-        })
+        if (!suppressed) {
+          window.webContents.send('sidebar:report', {
+            kind: 'hover',
+            inside: x >= 0 && y >= 0 && x < bounds.width && y < bounds.height
+          })
+        }
       }
       panel.webContents.send('sidebar:state', next)
     })
@@ -118,4 +132,5 @@ export function destroySidebarPanel(): void {
   loaded = undefined
   state = undefined
   host = undefined
+  suppressed = false
 }

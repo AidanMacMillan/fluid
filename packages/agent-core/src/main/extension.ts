@@ -49,6 +49,7 @@ export function createAgentExtension(
       ctx.tabTypes.register({
         id: 'session',
         label: provider.name,
+        history: { location: 'cwd', sessionId: 'sessionId' },
         view: { drawsBar: true },
         onStop: (tab) => adapter.stop(tab.id),
         onClose: (tab) => {

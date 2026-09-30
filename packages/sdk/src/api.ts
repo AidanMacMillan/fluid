@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { HistoryEntry } from './history'
 import {
   TAB_ACTIVITIES,
   type Bookmark,
@@ -230,6 +231,33 @@ export const contract = {
     setSplits: method(
       z.object({ id, splits: z.array(tabSplitSchema), activeTabId: id.optional() })
     ).returns<Task>()
+  },
+
+  history: {
+    /** Newest first. Search covers titles, types, locations and session IDs. */
+    list: method(
+      z.object({
+        taskId: id,
+        query: z.string().max(1000).optional(),
+        limit: z.number().int().min(1).max(200).default(100),
+        offset: z.number().int().min(0).default(0)
+      })
+    ).returns<HistoryEntry[]>(),
+    /** Record an event. Extensions must use a type prefixed with their own ID. */
+    record: method(
+      z.object({
+        taskId: id,
+        tabId: id.optional(),
+        type: z.string().trim().min(1).max(200),
+        label: z.string().trim().min(1).max(200),
+        title: z.string().trim().min(1).max(2000),
+        location: z.string().max(16000).optional(),
+        sessionId: z.string().max(1000).optional(),
+        metadata: z.record(z.string(), z.json()).default({})
+      })
+    ).returns<HistoryEntry>(),
+    delete: method(z.object({ taskId: id, id })).returns<void>(),
+    clear: method(z.object({ taskId: id })).returns<void>()
   },
 
   notes: {

@@ -22,6 +22,7 @@ function setup() {
   let listener
   const context = {
     exports: {},
+    fullscreenTabId: null,
     attached: new Map([['tab', placement]]),
     hostWindow: {
       isDestroyed: () => false,
@@ -35,6 +36,7 @@ function setup() {
     reports,
     placement,
     watch: context.exports.watchPeekZone,
+    fullscreen: (tabId) => (context.fullscreenTabId = tabId),
     resize: (width) => (windowWidth = width),
     move: (x, modifiers = []) => listener(null, { type: 'mouseMove', x, modifiers }),
     leave: () => listener(null, { type: 'mouseLeave' })
@@ -88,4 +90,15 @@ test('switching sides and docking clear the previous hover; page drags do not pe
   app.watch(0, 'right')
   app.move(999)
   assert.deepEqual(app.reports, [true, false, true, false])
+})
+
+test('HTML fullscreen suppresses edge peeks until the tab leaves fullscreen', () => {
+  const app = setup()
+  app.watch(8, 'left')
+  app.fullscreen('tab')
+  app.move(0)
+  assert.deepEqual(app.reports, [])
+  app.fullscreen(null)
+  app.move(0)
+  assert.deepEqual(app.reports, [true])
 })

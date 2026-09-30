@@ -1,3 +1,10 @@
+import { visitTab } from './history-capture'
+import {
+  openHistoryWindow,
+  closeHistoryWindow,
+  resizeHistoryWindow,
+  historyContext
+} from './history-window'
 import { isSidebarPanel, updateSidebarPanel } from './sidebar-panel'
 import type { SidebarPanelState, SidebarPanelReport } from '../shared/sidebar-panel'
 import type { SidebarPosition } from '../shared/appearance'
@@ -116,6 +123,9 @@ function windowForSender(contents: WebContents): BrowserWindow | null {
 // Deliberately a named surface rather than a generic "run this SQL" channel:
 // the renderer only gets the operations it actually needs.
 export function registerIpcHandlers(): void {
+  ipcMain.on('window:fullscreen', (event) => {
+    event.returnValue = BrowserWindow.fromWebContents(event.sender)?.isFullScreen() ?? false
+  })
   ipcMain.on('haptics:alignment', (event) => {
     const host = getHostWindow()
     if (host?.webContents !== event.sender || event.senderFrame !== event.sender.mainFrame) return
@@ -451,6 +461,22 @@ export function registerIpcHandlers(): void {
     (_e, entry: string, alternatives: LauncherMenuItem[]) =>
       void chooseLauncherAlternative(entry, alternatives)
   )
+
+  ipcMain.on('history:visit', (event, tabId: string | null, taskId: string | null) => {
+    if (
+      event.sender === getHostWindow()?.webContents &&
+      (tabId === null || typeof tabId === 'string') &&
+      (taskId === null || typeof taskId === 'string')
+    )
+      visitTab(tabId, taskId)
+  })
+  ipcMain.on('historyWindow:open', (event) => {
+    const parent = windowForSender(event.sender)
+    if (parent) openHistoryWindow(parent)
+  })
+  ipcMain.on('historyWindow:close', () => closeHistoryWindow())
+  ipcMain.on('historyWindow:resize', (_event, height: number) => resizeHistoryWindow(height))
+  ipcMain.handle('historyWindow:context', () => historyContext())
 
   // Clipboard
   //
