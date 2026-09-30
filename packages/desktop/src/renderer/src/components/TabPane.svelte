@@ -324,7 +324,7 @@
        two address bars side by side, which one Cmd+L and the page shortcuts
        mean should not be left to guesswork. -->
   <div
-    class="flex transition-opacity duration-150 {split && !focused
+    class="browser-chrome flex transition-opacity duration-150 {split && !focused
       ? 'opacity-55 hover:opacity-90'
       : ''}"
   >

@@ -5,7 +5,7 @@
   import { PROFILE_SWATCH } from '../lib/profile-colors'
   import { reorder, type SidebarSection } from '../lib/reorder.svelte'
   import { extensions } from '../lib/extensions.svelte'
-  import { SIDEBAR_INDENT_REM, type SidebarRow } from '../lib/sidebar-rows'
+  import type { SidebarRow } from '../lib/sidebar-rows'
   import { tabGlyph } from '../lib/tab-glyph'
   import { workspace } from '../lib/workspace.svelte'
   import IconButton from './IconButton.svelte'
@@ -179,7 +179,7 @@
   class="group/row relative before:absolute before:inset-x-0 before:-top-0.5 before:h-0.5 {dragging
     ? 'opacity-40'
     : ''}"
-  style:padding-left="{row.depth * SIDEBAR_INDENT_REM}rem"
+  style:padding-left="calc({row.depth} * var(--sidebar-indent))"
   ondragover={onDragOver}
   onpointerenter={() => {
     if (split) workspace.hoveredSplitId = split.id
@@ -191,7 +191,7 @@
   {#if line?.edge === 'top'}
     <span
       class="pointer-events-none absolute -top-0.5 right-0 h-0.5 drop-line"
-      style:left="{line.depth * SIDEBAR_INDENT_REM}rem"
+      style:left="calc({line.depth} * var(--sidebar-indent))"
     ></span>
   {/if}
 
@@ -303,7 +303,7 @@
       onclick={() => window.api.browser.toggleAudioMuted(tab.id)}
       class="absolute top-1/2 grid size-5 -translate-y-1/2 place-items-center rounded-md
              glass-control text-base text-ink-400 no-drag hover:text-ink-100 focus-visible:text-ink-100"
-      style:left="calc({row.depth * SIDEBAR_INDENT_REM}rem + 1.875rem)"
+      style:left="calc({row.depth} * var(--sidebar-indent) + 7.5 * var(--spacing))"
     >
       <span
         class={audioMuted ? 'icon-[ph--speaker-slash]' : 'icon-[ph--speaker-high]'}
@@ -351,7 +351,7 @@
   {#if line?.edge === 'bottom'}
     <span
       class="pointer-events-none absolute right-0 -bottom-0.5 h-0.5 drop-line"
-      style:left="{line.depth * SIDEBAR_INDENT_REM}rem"
+      style:left="calc({line.depth} * var(--sidebar-indent))"
     ></span>
   {:else if last && reorder.landsAtEnd(section)}
     <span class="pointer-events-none absolute inset-x-0 -bottom-0.5 h-0.5 drop-line"></span>

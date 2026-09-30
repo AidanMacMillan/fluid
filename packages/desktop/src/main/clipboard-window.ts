@@ -1,5 +1,6 @@
 import { join } from 'path'
 import { BrowserWindow, ClipboardItem, clipboard, type Rectangle } from 'electron'
+import { trackWindowAppearance, windowAppearance } from './window-appearance'
 import { is } from '@electron-toolkit/utils'
 import { existsSync } from 'node:fs'
 import { clipboardTask, forgetClipboardChange } from './clipboard-capture'
@@ -139,18 +140,13 @@ export function openClipboardWindow(parent: BrowserWindow): void {
     maximizable: false,
     fullscreenable: false,
     skipTaskbar: true,
-    ...(process.platform === 'darwin'
-      ? {
-          vibrancy: 'under-window' as const,
-          visualEffectState: 'active' as const,
-          backgroundColor: '#00000000'
-        }
-      : { backgroundColor: '#18181b' }),
+    ...windowAppearance('under-window'),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false
     }
   })
+  trackWindowAppearance(window, 'under-window')
 
   clipboardWindow = window
 

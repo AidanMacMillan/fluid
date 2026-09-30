@@ -2,7 +2,7 @@
   import type { TabActivity } from '@fluid/sdk'
   import { ACTIVITY_DOT, ACTIVITY_LABEL, strongerActivity } from '../lib/activity'
   import { reorder, type SidebarSection } from '../lib/reorder.svelte'
-  import { SIDEBAR_INDENT_REM, type SidebarRow } from '../lib/sidebar-rows'
+  import type { SidebarRow } from '../lib/sidebar-rows'
   import { workspace } from '../lib/workspace.svelte'
 
   type Props = {
@@ -154,19 +154,19 @@
   class="group/row relative before:absolute before:inset-x-0 before:-top-0.5 before:h-0.5 {dragging
     ? 'opacity-40'
     : ''}"
-  style:padding-left="{row.depth * SIDEBAR_INDENT_REM}rem"
+  style:padding-left="calc({row.depth} * var(--sidebar-indent))"
   ondragover={onDragOver}
 >
   {#if line?.edge === 'top'}
     <span
       class="pointer-events-none absolute -top-0.5 right-0 h-0.5 drop-line"
-      style:left="{line.depth * SIDEBAR_INDENT_REM}rem"
+      style:left="calc({line.depth} * var(--sidebar-indent))"
     ></span>
   {/if}
 
   <span
     class="pointer-events-none absolute inset-y-0 right-0 drop-zone rounded-lg"
-    style:left="{row.depth * SIDEBAR_INDENT_REM}rem"
+    style:left="calc({row.depth} * var(--sidebar-indent))"
     class:receiving
     aria-hidden="true"
   ></span>
@@ -244,7 +244,7 @@
   {#if line?.edge === 'bottom'}
     <span
       class="pointer-events-none absolute right-0 -bottom-0.5 h-0.5 drop-line"
-      style:left="{line.depth * SIDEBAR_INDENT_REM}rem"
+      style:left="calc({line.depth} * var(--sidebar-indent))"
     ></span>
   {:else if last && reorder.landsAtEnd(section)}
     <span class="pointer-events-none absolute inset-x-0 -bottom-0.5 h-0.5 drop-line"></span>

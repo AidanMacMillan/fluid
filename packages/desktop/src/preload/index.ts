@@ -75,6 +75,10 @@ ipcRenderer.on('theme:changed', (_e, theme: string) => applyTheme(theme))
 
 // Custom APIs for renderer
 const api = {
+  appearance: {
+    /** First-frame density, already loaded before the main window was created. */
+    density: (): number => ipcRenderer.sendSync('appearance:density') as number
+  },
   haptics: {
     alignment: (): void => {
       if (process.platform === 'darwin') ipcRenderer.send('haptics:alignment')

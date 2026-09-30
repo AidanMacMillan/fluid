@@ -1,5 +1,6 @@
 import { join } from 'path'
 import { BrowserWindow, Menu, type Rectangle } from 'electron'
+import { trackWindowAppearance, windowAppearance } from './window-appearance'
 import { is } from '@electron-toolkit/utils'
 import { popupProfileMenu } from './profile-menu'
 import type { NewTab, NewTaskTemplate } from '@fluid/sdk'
@@ -232,20 +233,15 @@ export function openLauncherWindow(
     // Out of the app switcher and off the window menu: this is a panel that is
     // up for a few seconds, not a window to be managed.
     skipTaskbar: true,
-    ...(process.platform === 'darwin'
-      ? {
-          // The same material settings uses, and for the same reason: this is
-          // held over the app rather than being more of it.
-          vibrancy: 'under-window' as const,
-          visualEffectState: 'active' as const,
-          backgroundColor: '#00000000'
-        }
-      : { backgroundColor: '#18181b' }),
+    // The same material settings uses, and for the same reason: this is held
+    // over the app rather than being more of it.
+    ...windowAppearance('under-window'),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false
     }
   })
+  trackWindowAppearance(window, 'under-window')
 
   launcherWindow = window
 

@@ -35,7 +35,7 @@
 <!-- The whole bar is the window's drag handle; the controls inside opt out with
      `no-drag`. Nothing here paints a background or an edge, so the vibrancy runs
      edge to edge and the content well below marks where the bar ends. -->
-<header class="h-titlebar shrink-0 select-none drag-region">
+<header class="browser-chrome h-titlebar shrink-0 select-none drag-region">
   <!-- No padding on the leading edge: `titlebar-safe-area` already starts the
        row past the OS window controls, and anything added here reads as a gap
        between them and the first button. The trailing edge has no furniture to
