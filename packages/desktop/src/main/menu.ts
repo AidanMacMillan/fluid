@@ -77,6 +77,12 @@ function openLauncher(): void {
   if (host && host.isEnabled()) openLauncherWindow(host)
 }
 
+/** Cmd+Shift+N opens the browser-only launcher, locked to the incognito profile. */
+function openIncognitoLauncher(): void {
+  const host = getHostWindow()
+  if (host && host.isEnabled()) openLauncherWindow(host, 'incognito')
+}
+
 /**
  * Cmd+Shift+T. Not a task outright, for the reason Cmd+T is not a tab: what the
  * new task should be is a question, and the launcher asks it — blank, on the
@@ -228,6 +234,11 @@ export function registerApplicationMenu(): void {
         // launcher is where it is asked (see src/main/launcher-window.ts). The
         // sidebar's own new-tab row opens the same panel.
         { label: 'New Tab', accelerator: 'CmdOrCtrl+T', click: openLauncher },
+        {
+          label: 'New Incognito Tab',
+          accelerator: 'CmdOrCtrl+Shift+N',
+          click: openIncognitoLauncher
+        },
         // The task the tabs go in. Shifted form of New Tab's key, since the
         // two are the same move a level apart — and like it, a panel that asks
         // what the task should be. The top bar's plus button opens the same one.

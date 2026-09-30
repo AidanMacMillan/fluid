@@ -425,7 +425,9 @@ export function registerIpcHandlers(): void {
   // opened over turns that into a tab in whatever task is selected there.
   ipcMain.on('launcher:open', (event, mode: LauncherMode | undefined) => {
     const parent = windowForSender(event.sender)
-    if (parent) openLauncherWindow(parent, mode === 'task' ? 'task' : 'tab')
+    if (parent) {
+      openLauncherWindow(parent, mode === 'task' || mode === 'incognito' ? mode : 'tab')
+    }
   })
   // The same panel asking about a task that exists: which icon it wears. What
   // it settles on is written straight through the API, so nothing comes back.

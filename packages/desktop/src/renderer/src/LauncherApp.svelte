@@ -11,6 +11,7 @@
     type LauncherRow
   } from '@fluid/sdk'
   import type { LauncherChoice, LauncherMode } from '../../main/launcher-window'
+  import { INCOGNITO_PROFILE_ID } from '../../main/profiles'
   import { fluid } from './lib/api'
   import { extensions } from './lib/extensions.svelte'
   import type { LauncherAction, LauncherOutcome, LauncherPrompt } from './lib/launcher-actions'
@@ -44,10 +45,14 @@
   const api = window.api.launcher
 
   /** Which question the panel was opened to ask. Fixed for its life: see `openLauncherWindow`. */
+  const requestedMode = new URLSearchParams(location.search).get('mode')
   const mode: LauncherMode =
-    new URLSearchParams(location.search).get('mode') === 'task' ? 'task' : 'tab'
+    requestedMode === 'task' || requestedMode === 'incognito' ? requestedMode : 'tab'
+  const incognito = mode === 'incognito'
+  const profile = incognito ? INCOGNITO_PROFILE_ID : null
 
   if (mode === 'task') document.title = 'New task'
+  if (incognito) document.title = 'New incognito tab'
 
   /**
    * How a row's icon is drawn, and what separates the rows that stand for an
@@ -95,7 +100,7 @@
   /** The wording for that question. Null in the ordinary case. */
   // Extensions are followed from here too: the panel is a window of its own,
   // and the rows they add come and go with them.
-  extensions.start()
+  if (!incognito) extensions.start()
 
   /**
    * An extension's entry, whichever panel it is for. A new-tab entry answers
@@ -127,6 +132,7 @@
    * said (a new-task entry with the same id) is left to say it.
    */
   const entries = $derived.by<Entry[]>(() => {
+    if (incognito) return []
     if (mode === 'task') {
       const own: Entry[] = extensions.newTaskEntries().flatMap(({ extensionId, entry, host }) =>
         forTypedText(entry)
@@ -316,6 +322,7 @@
   }
 
   const typedEntries = $derived.by<TypedEntry[]>(() => {
+    if (incognito) return []
     const found: TypedEntry[] = []
     if (mode === 'task') {
       for (const { extensionId, entry, host } of extensions.newTaskEntries()) {
@@ -429,7 +436,7 @@
           detail: '',
           icon: { kind: 'glyph', className: 'icon-[ph--arrow-square-out]' },
           section: 'go',
-          outcome: { kind: 'choice', choice: { kind: 'url', url, profile: null } }
+          outcome: { kind: 'choice', choice: { kind: 'url', url, profile } }
         }
       ]
     }
@@ -441,7 +448,7 @@
         detail: 'Search Google',
         icon: { kind: 'glyph', className: 'icon-[ph--magnifying-glass]' },
         section: 'go',
-        outcome: { kind: 'choice', choice: { kind: 'url', url: searchUrl(text), profile: null } }
+        outcome: { kind: 'choice', choice: { kind: 'url', url: searchUrl(text), profile } }
       }
     ]
   })
@@ -521,7 +528,7 @@
         ? { kind: 'favicon', src: bookmark.icon }
         : { kind: 'glyph', className: 'icon-[ph--bookmark-simple]' },
       section: catalogue ? 'catalogue' : 'go',
-      outcome: { kind: 'choice', choice: { kind: 'url', url: bookmark.url, profile: null } }
+      outcome: { kind: 'choice', choice: { kind: 'url', url: bookmark.url, profile } }
     }
   }
 
@@ -640,6 +647,7 @@
    */
   function pick(row: Choice, event: MouseEvent): void {
     event.preventDefault()
+    if (incognito) return
 
     const entryKey =
       row.outcome.kind === 'extension-action'
@@ -698,7 +706,12 @@
   }
 
   /** What the field says it is for, while it is not asking something narrower. */
-  const fieldLabel = mode === 'task' ? 'Search or name a new task' : 'Search or enter address'
+  const fieldLabel =
+    mode === 'task'
+      ? 'Search or name a new task'
+      : incognito
+        ? 'Search or enter address in incognito'
+        : 'Search or enter address'
 
   /** The panel itself, measured so the window can be sized to it. */
   let panel = $state<HTMLElement | null>(null)
@@ -756,7 +769,11 @@
         {asking.label}
       </span>
     {:else}
-      <span class="icon-[ph--magnifying-glass] shrink-0 text-base text-ink-500" aria-hidden="true"
+      <span
+        class="{incognito
+          ? 'icon-[ph--detective]'
+          : 'icon-[ph--magnifying-glass]'} shrink-0 text-base text-ink-500"
+        aria-hidden="true"
       ></span>
     {/if}
     <input
@@ -789,7 +806,7 @@
   {#if choices.length > 0}
     <ul
       use:keepSelectionInView
-      aria-label={mode === 'task' ? 'New task' : 'Open'}
+      aria-label={mode === 'task' ? 'New task' : incognito ? 'Open in incognito' : 'Open'}
       class="flex max-h-96 flex-col gap-0.5 overflow-y-auto p-1.5"
     >
       {#each choices as choice, index (choice.key)}
