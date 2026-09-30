@@ -545,6 +545,13 @@ export function floatingOwner(
   return null
 }
 
+/** The tab shown in a floating window, whether its page or its bar has focus. */
+export function floatingTabForWindow(window: BaseWindow): string | null {
+  if (poppedOut?.window === window) return poppedOut.tabId
+  if (session?.floating?.window === window) return session.tabId
+  return null
+}
+
 /**
  * Hands a popped-out tab back, and says which it was. The view is returned
  * rather than reattached: which window a view belongs in, and whether this one

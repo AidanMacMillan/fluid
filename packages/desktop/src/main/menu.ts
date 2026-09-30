@@ -12,7 +12,7 @@ import {
   focusedPage,
   getHostWindow,
   openFind,
-  popOutAttachedTab,
+  toggleFloatingTab,
   resetZoom,
   sendToHost,
   zoomIn,
@@ -328,12 +328,12 @@ export function registerApplicationMenu(): void {
         // The deliberate half of the miniplayer. A call or a video floats on
         // its own when its tab is hidden — the page decides, because only the
         // page knows what it is playing (see src/main/miniplayer.ts) — while
-        // this floats the tab whole, whatever is in it, because the user said
-        // so rather than because anything was detected.
+        // this toggles the whole tab's floating window. In a miniplayer it
+        // brings that tab back to the main window.
         {
-          label: 'Float This Tab',
+          label: 'Toggle Floating Tab',
           accelerator: 'CmdOrCtrl+Shift+P',
-          click: popOutAttachedTab
+          click: (_item, window) => toggleFloatingTab(window)
         },
         { type: 'separator' },
         // Zoom came free with Electron's default `viewMenu` role, and replacing
