@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { storedFileUrl } from '@fluid/sdk'
+  import { keepSelectionInView, storedFileUrl } from '@fluid/sdk'
   import type { ClipboardEntry } from '../../main/db/schema'
   import type { ClipboardContext } from '../../main/clipboard-window'
   import {
@@ -265,6 +265,7 @@
          height (see MAX_HEIGHT in src/main/clipboard-window.ts), and a list that
          outgrew the cap would be cut off with no way to reach the rest. -->
     <ul
+      use:keepSelectionInView
       aria-label="Clipboard history"
       class="flex max-h-[26rem] flex-col gap-0.5 overflow-y-auto p-1.5"
     >

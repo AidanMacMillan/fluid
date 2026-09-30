@@ -1,7 +1,9 @@
 import { join } from 'path'
 import { BrowserWindow, Menu, type Rectangle } from 'electron'
+import { trackWindowAppearance, windowAppearance } from './window-appearance'
 import { is } from '@electron-toolkit/utils'
 import { popupProfileMenu } from './profile-menu'
+import { INCOGNITO_PROFILE_ID } from './profiles'
 import type { NewTab, NewTaskTemplate } from '@fluid/sdk'
 
 /**
@@ -31,6 +33,8 @@ import type { NewTab, NewTaskTemplate } from '@fluid/sdk'
  * what the new task should be (Cmd+Shift+T, and the plus at the end of the
  * task strip). One window either way, since it is one field and one list; the
  * mode only decides which rows are in it.
+ * Cmd+Shift+N asks for an incognito browser tab: the same panel with only
+ * addresses, searches and bookmarks, and a fixed browsing profile.
  *
  * Or, a question about a task that already exists: which icon it wears and in
  * what colour (clicking the glyph on its tab). The same field over a grid of
@@ -38,7 +42,7 @@ import type { NewTab, NewTaskTemplate } from '@fluid/sdk'
  * IconPickerApp.svelte) — but a panel over the window for the same reasons, so
  * the same window.
  */
-export type LauncherMode = 'tab' | 'task' | 'icon'
+export type LauncherMode = 'tab' | 'incognito' | 'task' | 'icon'
 
 /** How wide the panel is, as a fraction of the window it opens over. */
 const PARENT_FRACTION = 0.6
@@ -131,7 +135,7 @@ let launcherWindow: BrowserWindow | undefined
 /** Which question the open panel is asking. */
 let launcherMode: LauncherMode = 'tab'
 
-/** The task the icon picker is choosing for; null in the other two modes. */
+/** The task the icon picker is choosing for; null in the other modes. */
 let launcherTaskId: string | null = null
 
 /**
@@ -232,20 +236,15 @@ export function openLauncherWindow(
     // Out of the app switcher and off the window menu: this is a panel that is
     // up for a few seconds, not a window to be managed.
     skipTaskbar: true,
-    ...(process.platform === 'darwin'
-      ? {
-          // The same material settings uses, and for the same reason: this is
-          // held over the app rather than being more of it.
-          vibrancy: 'under-window' as const,
-          visualEffectState: 'active' as const,
-          backgroundColor: '#00000000'
-        }
-      : { backgroundColor: '#18181b' }),
+    // The same material settings uses, and for the same reason: this is held
+    // over the app rather than being more of it.
+    ...windowAppearance('under-window'),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false
     }
   })
+  trackWindowAppearance(window, 'under-window')
 
   launcherWindow = window
 
@@ -345,6 +344,12 @@ export function resizeLauncherWindow(height: number): void {
  * panel. The choice is all that crosses (see `LauncherChoice`).
  */
 export function submitLauncherChoice(choice: LauncherChoice): void {
+  // Incognito is a browser-only panel, even if a stale renderer submits an
+  // extension choice or a URL carrying another profile.
+  if (launcherMode === 'incognito') {
+    if (choice.kind !== 'url') return
+    choice = { ...choice, profile: INCOGNITO_PROFILE_ID }
+  }
   const parent = opener
   closeLauncherWindow()
   if (parent && !parent.isDestroyed()) parent.webContents.send('launcher:openTab', choice)
@@ -360,6 +365,7 @@ export function submitLauncherChoice(choice: LauncherChoice): void {
  * somewhere to go even if the panel is gone by the time it is made.
  */
 export async function chooseLauncherProfile(url: string): Promise<void> {
+  if (launcherMode === 'incognito') return
   const parent = opener
   const panel = launcherWindow
 
@@ -394,6 +400,7 @@ export async function chooseLauncherAlternative(
   entry: string,
   alternatives: LauncherMenuItem[]
 ): Promise<void> {
+  if (launcherMode === 'incognito') return
   // Captured before anything opens over the panel: the panel closing clears
   // `opener`, and this is where the tab has to end up.
   const parent = opener

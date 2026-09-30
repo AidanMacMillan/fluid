@@ -22,9 +22,14 @@ import { registerTheme } from './theme'
 import { appIcon } from './app-icon'
 import { registerAutoUpdater } from './updater'
 import { registerAdBlocking } from './ad-blocking'
+import {
+  registerWindowAppearance,
+  trackWindowAppearance,
+  windowAppearance
+} from './window-appearance'
 
-// Keep in sync with `--spacing-titlebar` in src/renderer/src/assets/main.css.
-const TITLE_BAR_HEIGHT = 40
+import { currentWindowDensity, registerWindowDensity, trackWindowDensity } from './window-density'
+import { titleBarHeight, trafficLightPosition } from '../shared/appearance'
 
 // The renderer paints no background of its own, so this material *is* the
 // window's background. 'hud' is the thinnest of the macOS materials — the most
@@ -62,27 +67,13 @@ function createWindow(): void {
     titleBarOverlay: {
       color: '#18181b',
       symbolColor: '#e4e4e7',
-      height: TITLE_BAR_HEIGHT
+      height: titleBarHeight(currentWindowDensity())
     },
     // Centre the 12px traffic lights in the taller bar (macOS only). The top
     // bar's leading inset is worked out from this x — see `titlebar-safe-area`
     // in src/renderer/src/assets/main.css.
-    trafficLightPosition: { x: 14, y: (TITLE_BAR_HEIGHT - 12) / 2 },
-    ...(process.platform === 'darwin'
-      ? {
-          // An NSVisualEffectView behind the web contents, which is the only
-          // background the window has — nothing in the renderer paints over it.
-          vibrancy: VIBRANCY_MATERIALS[0],
-          // Keep the blur live even unfocused. With no tint of our own, letting
-          // the material go inactive turns the whole window flat grey.
-          visualEffectState: 'active' as const,
-          // The window must paint nothing itself, or its opaque background
-          // covers the vibrancy layer entirely.
-          backgroundColor: '#00000000'
-        }
-      : // Elsewhere there is no blur layer at all, and a transparent window
-        // would composite against nothing, so stay opaque.
-        { backgroundColor: '#18181b' }),
+    trafficLightPosition: trafficLightPosition(currentWindowDensity()),
+    ...windowAppearance(VIBRANCY_MATERIALS[0]),
     ...(process.platform === 'linux' ? { icon: appIcon() } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -97,6 +88,8 @@ function createWindow(): void {
       // point.
     }
   })
+  trackWindowAppearance(mainWindow, VIBRANCY_MATERIALS[0])
+  trackWindowDensity(mainWindow)
 
   // Browser tabs render as native child views of this window's content view.
   registerHostWindow(mainWindow)
@@ -206,6 +199,10 @@ app.whenReady().then(async () => {
     app.exit(1)
     return
   }
+  // Before the first window, so its saved native appearance is in force on
+  // the first frame rather than changing after it is shown.
+  await registerWindowAppearance()
+  await registerWindowDensity()
   // Before the first window, whose preload asks for the theme to paint in.
   await registerTheme()
   await registerAdBlocking()

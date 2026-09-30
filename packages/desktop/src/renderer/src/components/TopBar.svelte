@@ -14,17 +14,8 @@
     const project = workspace.activeProject
     if (!project) return 'Switch project'
     const where = project.root === null ? 'home folder' : shortenPath(project.root, workspace.home)
-    // The space as well, since it is what every page in the window is signed in
-    // as: two projects with the same sites open are two different visitors when
-    // they are in different spaces.
-    return `${project.name} — ${where} · ${project.spaceName} space`
+    return `${project.name} — ${where}`
   })
-
-  /**
-   * The space's name, drawn on the button always — the default space included,
-   * since it can be renamed and is then as much worth reading as any other.
-   */
-  const spaceLabel = $derived(workspace.activeSpaceName)
 
   function onDrop(event: DragEvent): void {
     const next = reorder.drop(event, 'task', workspace.tasks)
@@ -35,7 +26,7 @@
 <!-- The whole bar is the window's drag handle; the controls inside opt out with
      `no-drag`. Nothing here paints a background or an edge, so the vibrancy runs
      edge to edge and the content well below marks where the bar ends. -->
-<header class="h-titlebar shrink-0 select-none drag-region">
+<header class="browser-chrome h-titlebar shrink-0 select-none drag-region">
   <!-- No padding on the leading edge: `titlebar-safe-area` already starts the
        row past the OS window controls, and anything added here reads as a gap
        between them and the first button. The trailing edge has no furniture to
@@ -109,17 +100,6 @@
              text-xs font-medium text-ink-300 no-drag hover:text-ink-100"
     >
       <span class="max-w-40 truncate">{workspace.activeProject?.name ?? 'Projects'}</span>
-      {#if spaceLabel}
-        <!-- Which browsing world the project's pages are signed in as. A chip
-             rather than more of the same line: it is a different fact from the
-             project's name, and one that changes what a page *is*. -->
-        <span
-          class="max-w-24 shrink truncate rounded bg-white/10 px-1.5 py-0.5 text-[0.625rem]
-                 font-medium text-ink-300"
-        >
-          {spaceLabel}
-        </span>
-      {/if}
     </button>
 
     <IconButton

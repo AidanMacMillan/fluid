@@ -5,6 +5,14 @@
   import { fluid } from './lib/api'
   import { extensions, provideWindowActions } from './lib/extensions.svelte'
   import { workspace } from './lib/workspace.svelte'
+  import { UI_DENSITY_SETTING, uiDensity, titleBarHeight } from '../../shared/appearance'
+
+  let density = $state(uiDensity(window.api.appearance.density()))
+  $effect(() =>
+    fluid.watch('settings.get', { key: UI_DENSITY_SETTING }, (value) => {
+      density = uiDensity(value)
+    })
+  )
 
   // Extensions' renderer halves open links, and remember how their tabs were
   // left, through this window: it is the one with a strip to open them in.
@@ -134,11 +142,15 @@
   })
 </script>
 
-<div class="flex h-screen flex-col glass-scrim text-ink-100 text-on-glass">
+<div
+  class="flex h-screen flex-col glass-scrim text-ink-100 text-on-glass"
+  style:--chrome-density={density}
+  style:--spacing-titlebar="{titleBarHeight(density)}px"
+>
   <TopBar />
   {#if workspace.ready}
     <div class="flex min-h-0 flex-1" class:flex-row-reverse={workspace.sidebarPosition === 'right'}>
-      <SidebarDock />
+      <SidebarDock {density} />
       <div class="flex min-w-0 flex-1">
         <BrowserSurface />
       </div>

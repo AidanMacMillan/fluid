@@ -1,3 +1,4 @@
+import { publishSidebarEvent } from '../sidebar-panel'
 import { BrowserWindow, ipcMain } from 'electron'
 import { subscribe } from './bus'
 import { callApi } from './router'
@@ -19,6 +20,7 @@ export function registerApiIpc(): void {
   )
 
   subscribe((event) => {
+    publishSidebarEvent(event)
     for (const window of BrowserWindow.getAllWindows()) {
       if (!window.isDestroyed()) window.webContents.send('api:event', event)
     }

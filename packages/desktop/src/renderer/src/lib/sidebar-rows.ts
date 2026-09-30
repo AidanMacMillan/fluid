@@ -20,9 +20,6 @@ import type { SidebarItemRef, SidebarSection, SidebarSlot } from './reorder.svel
  * leave the sidebar with no row saying what that page beside it is.
  */
 
-/** How far each folder's contents are drawn in from it, in rem. */
-export const SIDEBAR_INDENT_REM = 0.75
-
 export type Node = SidebarNode<Tab, TabFolder>
 export type Tree = SidebarTree<Tab, TabFolder>
 

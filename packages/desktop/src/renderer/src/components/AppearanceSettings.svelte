@@ -3,7 +3,15 @@
   import { reasonFrom } from '../lib/ipc-error'
   import {
     SIDEBAR_POSITION_SETTING,
+    UI_DENSITY_SETTING,
+    UI_DENSITY,
+    UI_DENSITY_MARKS,
+    uiDensity,
+    densityFromSlider,
+    densityToSlider,
+    WINDOW_TRANSPARENCY_SETTING,
     sidebarPosition,
+    windowTransparency,
     type SidebarPosition
   } from '../../../shared/appearance'
   import ThemePicker from './ThemePicker.svelte'
@@ -11,7 +19,55 @@
   let selected = $state<SidebarPosition>('left')
   let loaded = $state(false)
   let saving = $state(false)
+  let transparency = $state(true)
+  let transparencyLoaded = $state(false)
+  let transparencySaving = $state(false)
   let error = $state<string | null>(null)
+  let density = $state<number>(UI_DENSITY.default)
+  let densityLoaded = $state(false)
+  let densitySaving = $state(false)
+  let densityError = $state<string | null>(null)
+  let savedDensity: number = UI_DENSITY.default
+  let pendingDensity: number | null = null
+
+  $effect(() =>
+    fluid.watch(
+      'settings.get',
+      { key: UI_DENSITY_SETTING },
+      (value) => {
+        // A write's echo must not pull the thumb back during a newer gesture.
+        if (densitySaving) return
+        density = savedDensity = uiDensity(value)
+        densityLoaded = true
+      },
+      (cause) => (densityError = reasonFrom(cause))
+    )
+  )
+
+  async function setDensity(value: number): Promise<void> {
+    density = pendingDensity = uiDensity(value)
+    densityError = null
+    if (densitySaving) return
+    densitySaving = true
+    try {
+      // Serialize writes and coalesce intermediate frames. The last position
+      // always wins, including when the panel closes during a quick drag.
+      while (pendingDensity !== null) {
+        const next = pendingDensity
+        pendingDensity = null
+        try {
+          await fluid.settings.set({ key: UI_DENSITY_SETTING, value: next })
+          savedDensity = next
+          densityError = null
+        } catch (cause) {
+          densityError = reasonFrom(cause)
+          if (pendingDensity === null) density = savedDensity
+        }
+      }
+    } finally {
+      densitySaving = false
+    }
+  }
 
   $effect(() =>
     fluid.watch(
@@ -20,6 +76,18 @@
       (value) => {
         selected = sidebarPosition(value)
         loaded = true
+      },
+      (cause) => (error = reasonFrom(cause))
+    )
+  )
+
+  $effect(() =>
+    fluid.watch(
+      'settings.get',
+      { key: WINDOW_TRANSPARENCY_SETTING },
+      (value) => {
+        transparency = windowTransparency(value)
+        transparencyLoaded = true
       },
       (cause) => (error = reasonFrom(cause))
     )
@@ -40,9 +108,95 @@
       saving = false
     }
   }
+
+  async function setTransparency(enabled: boolean): Promise<void> {
+    const previous = transparency
+    transparency = enabled
+    transparencySaving = true
+    error = null
+    try {
+      await fluid.settings.set({ key: WINDOW_TRANSPARENCY_SETTING, value: enabled })
+    } catch (cause) {
+      transparency = previous
+      error = reasonFrom(cause)
+    } finally {
+      transparencySaving = false
+    }
+  }
 </script>
 
 <div class="flex flex-col gap-6">
+  <section aria-labelledby="density-heading">
+    <h2 id="density-heading" class="mb-3 text-xs font-medium text-ink-200">Interface density</h2>
+    <div class="rounded-lg bg-white/5 p-3 text-xs">
+      <div class="flex items-center justify-between gap-3">
+        <label for="interface-density" class="font-medium text-ink-100">Spacing</label>
+        <button
+          type="button"
+          onclick={() => void setDensity(UI_DENSITY.default)}
+          disabled={!densityLoaded || density === UI_DENSITY.default}
+          class="rounded glass-control px-2 py-1 text-ink-400 hover:text-ink-100 focus-visible:ring-2 focus-visible:ring-marker/60 disabled:opacity-40"
+          >Reset</button
+        >
+      </div>
+      <p id="density-description" class="mt-1 text-ink-400">
+        Adjust spacing in the main window’s navigation and sidebar. Text size stays the same.
+      </p>
+      <div class="density-slider mt-5">
+        <div class="density-marks text-ink-400" aria-hidden="true">
+          {#each UI_DENSITY_MARKS as mark (mark.label)}
+            <span
+              class="density-mark"
+              class:first={mark.value === UI_DENSITY.min}
+              class:last={mark.value === UI_DENSITY.max}
+              style:left="{densityToSlider(mark.value) * 100}%">{mark.label}</span
+            >
+          {/each}
+        </div>
+        <input
+          id="interface-density"
+          type="range"
+          min={0}
+          max={1}
+          step="any"
+          value={densityToSlider(density)}
+          disabled={!densityLoaded}
+          aria-describedby="density-description"
+          aria-valuetext={`${Math.round(density * 100)}% spacing${density === UI_DENSITY.default ? ', Tight, default' : ''}`}
+          oninput={(event) => void setDensity(densityFromSlider(event.currentTarget.valueAsNumber))}
+        />
+      </div>
+      {#if densityError}<p role="alert" class="mt-3 text-red-400">{densityError}</p>{/if}
+    </div>
+  </section>
+
+  <section aria-labelledby="window-heading">
+    <h2 id="window-heading" class="mb-3 text-xs font-medium text-ink-200">Window</h2>
+    <div class="flex items-center justify-between gap-4 rounded-lg bg-white/5 p-3 text-xs">
+      <div>
+        <p id="window-transparency-label" class="font-medium text-ink-100">Transparency</p>
+        <p class="mt-1 text-ink-400">Let the desktop show through app windows.</p>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={transparency}
+        aria-labelledby="window-transparency-label"
+        onclick={() => void setTransparency(!transparency)}
+        disabled={!transparencyLoaded || transparencySaving}
+        class="relative h-5 w-9 shrink-0 rounded-full ring-1 transition-colors
+               disabled:pointer-events-none disabled:opacity-40
+               {transparency ? 'bg-switch-on ring-white/20' : 'bg-white/10 ring-white/15'}"
+      >
+        <span
+          class="absolute top-0.5 size-4 rounded-full bg-ink-100 shadow transition-[left]
+                 {transparency ? 'left-[1.125rem]' : 'left-0.5'}"
+          aria-hidden="true"
+        ></span>
+      </button>
+    </div>
+  </section>
+
   <section aria-labelledby="sidebar-heading">
     <h2 id="sidebar-heading" class="mb-3 text-xs font-medium text-ink-200">Sidebar</h2>
     <div class="flex items-center justify-between gap-3 rounded-lg bg-white/5 p-3 text-xs">
@@ -66,3 +220,79 @@
     <ThemePicker />
   </section>
 </div>
+
+<style>
+  .density-marks {
+    position: relative;
+    height: 1.75rem;
+    margin-inline: 0.5rem;
+    font-size: 0.6875rem;
+  }
+
+  .density-mark {
+    position: absolute;
+    transform: translateX(-50%);
+  }
+
+  .density-mark.first {
+    transform: none;
+  }
+  .density-mark.last {
+    transform: translateX(-100%);
+  }
+
+  .density-mark::after {
+    content: '';
+    position: absolute;
+    top: 1.125rem;
+    left: 50%;
+    height: 0.375rem;
+    width: 1px;
+    background: currentColor;
+    opacity: 0.5;
+  }
+
+  .density-mark.first::after {
+    left: 0;
+  }
+  .density-mark.last::after {
+    left: 100%;
+  }
+
+  input[type='range'] {
+    display: block;
+    appearance: none;
+    width: 100%;
+    height: 1.25rem;
+    margin: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  input[type='range']::-webkit-slider-runnable-track {
+    height: 0.25rem;
+    border-radius: 999px;
+    background: var(--color-ink-600);
+  }
+
+  input[type='range']::-webkit-slider-thumb {
+    appearance: none;
+    width: 1rem;
+    height: 1rem;
+    margin-top: -0.375rem;
+    border-radius: 50%;
+    background: var(--color-ink-100);
+    box-shadow: 0 1px 4px #0006;
+  }
+
+  input[type='range']:focus-visible {
+    border-radius: 0.25rem;
+    outline: 2px solid var(--color-marker);
+    outline-offset: 3px;
+  }
+
+  input[type='range']:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+</style>

@@ -1,3 +1,4 @@
+import { destroySidebarPanel, raiseSidebarPanel } from './sidebar-panel'
 import type { SidebarPosition } from '../shared/appearance'
 import {
   BrowserWindow,
@@ -47,6 +48,7 @@ import {
   enterMiniplayer,
   closeMiniplayer,
   floatingOwner,
+  floatingTabForWindow,
   floatingTabIds,
   forgetMiniplayer,
   leaveMiniplayer,
@@ -1701,6 +1703,7 @@ function attach(
     placement = { measured, bounds: NO_BOUNDS }
     attached.set(tabId, placement)
     window.contentView.addChildView(view)
+    raiseSidebarPanel()
   }
   rebase(placement)
   applyBounds(view, placement.bounds)
@@ -1834,11 +1837,22 @@ function publishPoppedOut(): void {
 onFloatingChanged(() => sendToHost('browser:floating', floatingTabIds()))
 
 /**
- * The same for whichever page is on screen, which is what a menu item can ask
- * for: the menu knows about pages and windows, and tabs are this module's.
- * Nothing happens when the pane is holding something that is not a page.
+ * Toggles the tab under the shortcut: a focused floating window comes home,
+ * as does a floating tab selected in the main window. Otherwise the attached
+ * page floats. Other windows have no tab for this shortcut to act on.
  */
-export function popOutAttachedTab(): void {
+export function toggleFloatingTab(window: BaseWindow | undefined): void {
+  if (!window || window.isDestroyed()) return
+  const floating = floatingTabForWindow(window)
+  if (floating !== null) {
+    void returnFromMiniplayer(floating)
+    return
+  }
+  if (window !== hostWindow) return
+  if (focusedTabId !== null && floatingTabIds().includes(focusedTabId)) {
+    void returnFromMiniplayer(focusedTabId)
+    return
+  }
   const front = frontTabId()
   if (front !== null) popOutTab(front)
 }
@@ -2265,4 +2279,5 @@ export function destroyAllBrowserViews(): void {
   destroyZoomIndicator()
   destroyFindBar()
   destroySplitDrop()
+  destroySidebarPanel()
 }

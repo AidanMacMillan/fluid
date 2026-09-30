@@ -1,5 +1,7 @@
+import { isSidebarPanel, updateSidebarPanel } from './sidebar-panel'
+import type { SidebarPanelState, SidebarPanelReport } from '../shared/sidebar-panel'
 import type { SidebarPosition } from '../shared/appearance'
-import { BrowserWindow, ipcMain, type Rectangle } from 'electron'
+import { BrowserWindow, ipcMain, type Rectangle, type WebContents } from 'electron'
 import { listProjects } from './db/projects'
 import * as projectsApi from './api/projects'
 import { dismissTaskNotifications, takePendingOpenTask } from './notifications'
@@ -106,6 +108,11 @@ import {
   revealStoredFile
 } from './files'
 
+/** Native sidebar controls open menus and auxiliary windows over the host. */
+function windowForSender(contents: WebContents): BrowserWindow | null {
+  return isSidebarPanel(contents) ? getHostWindow() : BrowserWindow.fromWebContents(contents)
+}
+
 // Deliberately a named surface rather than a generic "run this SQL" channel:
 // the renderer only gets the operations it actually needs.
 export function registerIpcHandlers(): void {
@@ -168,6 +175,13 @@ export function registerIpcHandlers(): void {
   ipcMain.on('browser:setBounds', (_e, tabId: string, bounds: MeasuredBounds) =>
     setBrowserViewBounds(tabId, bounds)
   )
+  ipcMain.on('sidebar:state', (event, state: SidebarPanelState) => {
+    const host = getHostWindow()
+    if (host && event.sender === host.webContents) updateSidebarPanel(host, state)
+  })
+  ipcMain.on('sidebar:report', (event, report: SidebarPanelReport) => {
+    if (isSidebarPanel(event.sender)) sendToHost('sidebar:report', report)
+  })
   ipcMain.on('browser:watchPeekZone', (_e, width: number, side: SidebarPosition) =>
     watchPeekZone(width, side)
   )
@@ -192,31 +206,29 @@ export function registerIpcHandlers(): void {
   // the only thing it cannot do for itself is empty one, because the data lives
   // in a session rather than in the database.
   ipcMain.handle('profiles:reset', (event, space: string | null, profile: number) =>
-    resetProfile(space, profile, BrowserWindow.fromWebContents(event.sender))
+    resetProfile(space, profile, windowForSender(event.sender))
   )
   // Native, because neither window can draw a menu of its own that would be
   // seen: see src/main/profile-menu.ts.
   ipcMain.handle('profiles:pick', (event, options: ProfilePickOptions) =>
-    popupProfileMenu(BrowserWindow.fromWebContents(event.sender), options)
+    popupProfileMenu(windowForSender(event.sender), options)
   )
   // The same again for a tab's row in the sidebar: a browser tab's menu carries
   // the profile rows as a submenu, and an extension's tab carries whatever its
   // type offers. See src/main/tab-menu.ts.
   ipcMain.handle('tabs:menu', (event, options: TabMenuOptions) =>
-    popupTabMenu(BrowserWindow.fromWebContents(event.sender), options)
+    popupTabMenu(windowForSender(event.sender), options)
   )
   // A folder's row, and the sidebar's empty ground, for the same reason.
   ipcMain.handle('folders:menu', (event, options: FolderMenuOptions) =>
-    popupFolderMenu(BrowserWindow.fromWebContents(event.sender), options)
+    popupFolderMenu(windowForSender(event.sender), options)
   )
-  ipcMain.handle('sidebar:menu', (event) =>
-    popupSectionMenu(BrowserWindow.fromWebContents(event.sender))
-  )
+  ipcMain.handle('sidebar:menu', (event) => popupSectionMenu(windowForSender(event.sender)))
   // And the buttons in a task's panel, which run here for the same reason an
   // extension's menu items do. See src/main/task-actions.ts.
   ipcMain.handle('tasks:actions', (_event, taskId: string) => listTaskActions(taskId))
   ipcMain.handle('tasks:runAction', (event, taskId: string, actionId: string) =>
-    runTaskAction(BrowserWindow.fromWebContents(event.sender), taskId, actionId)
+    runTaskAction(windowForSender(event.sender), taskId, actionId)
   )
 
   // Files
@@ -348,7 +360,7 @@ export function registerIpcHandlers(): void {
   // The picker window itself, opened the way the launcher is and answering the
   // same way: what it settles on goes to the window it opened over.
   ipcMain.on('projectWindow:open', (event) => {
-    const window = BrowserWindow.fromWebContents(event.sender)
+    const window = windowForSender(event.sender)
     if (window) openProjectWindow(window)
   })
   ipcMain.on('projectWindow:submit', (_e, choice: ProjectChoice) => submitProjectChoice(choice))
@@ -363,7 +375,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('dialog:chooseFolder', async (event, options?: FolderPickerOptions) => {
     const release = holdLauncherWindow()
     try {
-      return await chooseDirectory(BrowserWindow.fromWebContents(event.sender), {
+      return await chooseDirectory(windowForSender(event.sender), {
         title: options?.title ?? 'Choose a folder',
         buttonLabel: options?.buttonLabel
       })
@@ -388,7 +400,7 @@ export function registerIpcHandlers(): void {
   // Opening is the whole of the traffic. Closing is the panel's own business —
   // Escape, Cmd+W, or looking away, all answered in the main process.
   ipcMain.on('settingsWindow:open', (event) => {
-    const parent = BrowserWindow.fromWebContents(event.sender)
+    const parent = windowForSender(event.sender)
     if (parent) openSettingsWindow(parent)
   })
 
@@ -396,13 +408,13 @@ export function registerIpcHandlers(): void {
   // of its own laid over the space the panel measured for it (see
   // src/main/settings-views.ts). Only the panel itself may ask.
   ipcMain.on('settingsWindow:showExtension', (event, extensionId: unknown, bounds: unknown) => {
-    const window = BrowserWindow.fromWebContents(event.sender)
+    const window = windowForSender(event.sender)
     if (!window || !isSettingsWindow(window) || typeof extensionId !== 'string') return
     if (!isRectangle(bounds)) return
     showExtensionSettings(window, extensionId, bounds)
   })
   ipcMain.on('settingsWindow:hideExtension', (event) => {
-    const window = BrowserWindow.fromWebContents(event.sender)
+    const window = windowForSender(event.sender)
     if (window && isSettingsWindow(window)) hideExtensionSettings()
   })
 
@@ -412,13 +424,15 @@ export function registerIpcHandlers(): void {
   // goes back the other way: the panel names an address, and the window it
   // opened over turns that into a tab in whatever task is selected there.
   ipcMain.on('launcher:open', (event, mode: LauncherMode | undefined) => {
-    const parent = BrowserWindow.fromWebContents(event.sender)
-    if (parent) openLauncherWindow(parent, mode === 'task' ? 'task' : 'tab')
+    const parent = windowForSender(event.sender)
+    if (parent) {
+      openLauncherWindow(parent, mode === 'task' || mode === 'incognito' ? mode : 'tab')
+    }
   })
   // The same panel asking about a task that exists: which icon it wears. What
   // it settles on is written straight through the API, so nothing comes back.
   ipcMain.on('launcher:pickIcon', (event, taskId: unknown) => {
-    const parent = BrowserWindow.fromWebContents(event.sender)
+    const parent = windowForSender(event.sender)
     if (parent && typeof taskId === 'string' && taskId !== '') {
       openLauncherWindow(parent, 'icon', taskId)
     }
@@ -478,7 +492,7 @@ export function registerIpcHandlers(): void {
   // nothing at the door: which task it shows is already known in main, pushed
   // there by `clipboard:setTask` above, and the panel asks for it once it loads.
   ipcMain.on('clipboardWindow:open', (event) => {
-    const parent = BrowserWindow.fromWebContents(event.sender)
+    const parent = windowForSender(event.sender)
     if (parent) openClipboardWindow(parent)
   })
   ipcMain.on('clipboardWindow:close', () => closeClipboardWindow())

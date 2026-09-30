@@ -67,6 +67,7 @@ export default defineConfig({
           project: resolve(__dirname, 'src/renderer/project.html'),
           clipboard: resolve(__dirname, 'src/renderer/clipboard.html'),
           find: resolve(__dirname, 'src/renderer/find.html'),
+          sidebar: resolve(__dirname, 'src/renderer/sidebar.html'),
           'split-drop': resolve(__dirname, 'src/renderer/split-drop.html'),
           popout: resolve(__dirname, 'src/renderer/popout.html'),
           'extension-view': resolve(__dirname, 'src/renderer/extension-view.html'),

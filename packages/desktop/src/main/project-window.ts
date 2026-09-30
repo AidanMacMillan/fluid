@@ -1,5 +1,6 @@
 import { join } from 'path'
 import { BrowserWindow, type Rectangle } from 'electron'
+import { trackWindowAppearance, windowAppearance } from './window-appearance'
 import { is } from '@electron-toolkit/utils'
 import type { ProjectsState } from './projects'
 
@@ -141,18 +142,13 @@ export function openProjectWindow(parent: BrowserWindow): void {
     maximizable: false,
     fullscreenable: false,
     skipTaskbar: true,
-    ...(process.platform === 'darwin'
-      ? {
-          vibrancy: 'under-window' as const,
-          visualEffectState: 'active' as const,
-          backgroundColor: '#00000000'
-        }
-      : { backgroundColor: '#18181b' }),
+    ...windowAppearance('under-window'),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false
     }
   })
+  trackWindowAppearance(window, 'under-window')
 
   projectWindow = window
 

@@ -1,3 +1,4 @@
+import type { SidebarPanelState, SidebarPanelReport } from '../shared/sidebar-panel'
 import type { SidebarPosition } from '../shared/appearance'
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
@@ -75,6 +76,10 @@ ipcRenderer.on('theme:changed', (_e, theme: string) => applyTheme(theme))
 
 // Custom APIs for renderer
 const api = {
+  appearance: {
+    /** First-frame density, already loaded before the main window was created. */
+    density: (): number => ipcRenderer.sendSync('appearance:density') as number
+  },
   haptics: {
     alignment: (): void => {
       if (process.platform === 'darwin') ipcRenderer.send('haptics:alignment')
@@ -439,6 +444,20 @@ const api = {
     }
   },
   sidebar: {
+    updatePanel: (state: SidebarPanelState): void => ipcRenderer.send('sidebar:state', state),
+    reportPanel: (report: SidebarPanelReport): void => ipcRenderer.send('sidebar:report', report),
+    onPanelState: (listener: (state: SidebarPanelState) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, state: SidebarPanelState): void =>
+        listener(state)
+      ipcRenderer.on('sidebar:state', handler)
+      return () => ipcRenderer.off('sidebar:state', handler)
+    },
+    onPanelReport: (listener: (report: SidebarPanelReport) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, report: SidebarPanelReport): void =>
+        listener(report)
+      ipcRenderer.on('sidebar:report', handler)
+      return () => ipcRenderer.off('sidebar:report', handler)
+    },
     /**
      * Cmd+S, from the application menu. The sidebar's state belongs to the
      * renderer, so main asks rather than tells; the accelerator exists at all

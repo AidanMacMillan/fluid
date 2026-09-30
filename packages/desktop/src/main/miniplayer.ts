@@ -1,6 +1,7 @@
 import { join } from 'path'
 import { BaseWindow, BrowserWindow, screen, WebContentsView } from 'electron'
 import type { BrowserWindowConstructorOptions, Rectangle, WebContents } from 'electron'
+import { trackWindowAppearance, windowAppearance } from './window-appearance'
 import { is } from '@electron-toolkit/utils'
 import { MINIPLAYER_AGENT, type MiniplayerKind } from './miniplayer-agent'
 import { constrainVideoResize } from './video-resize'
@@ -447,13 +448,12 @@ function createFloating(tabId: string, view: WebContentsView, bounds: Rectangle)
       ? {
           // A native panel can float above fullscreen apps without hiding the
           // application's Dock entry to turn it into a UI-element process.
-          type: 'panel' as const,
-          vibrancy: 'hud' as const,
-          visualEffectState: 'active' as const,
-          backgroundColor: '#00000000'
+          type: 'panel' as const
         }
-      : { backgroundColor: '#18181b' })
+      : {}),
+    ...windowAppearance('hud')
   })
+  trackWindowAppearance(window, 'hud')
   // Above full-screen apps and on whichever space the user is on, which is the
   // difference between a floating window and one that is merely on top: the
   // tab was left behind to go and do something else, and that something else
@@ -542,6 +542,13 @@ export function floatingOwner(
   if (session?.floating?.bar.webContents === sender) {
     return { kind: 'miniplayer', tabId: session.tabId }
   }
+  return null
+}
+
+/** The tab shown in a floating window, whether its page or its bar has focus. */
+export function floatingTabForWindow(window: BaseWindow): string | null {
+  if (poppedOut?.window === window) return poppedOut.tabId
+  if (session?.floating?.window === window) return session.tabId
   return null
 }
 

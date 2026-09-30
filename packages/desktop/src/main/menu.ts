@@ -12,7 +12,7 @@ import {
   focusedPage,
   getHostWindow,
   openFind,
-  popOutAttachedTab,
+  toggleFloatingTab,
   resetZoom,
   sendToHost,
   zoomIn,
@@ -75,6 +75,12 @@ function pageItem(
 function openLauncher(): void {
   const host = getHostWindow()
   if (host && host.isEnabled()) openLauncherWindow(host)
+}
+
+/** Cmd+Shift+N opens the browser-only launcher, locked to the incognito profile. */
+function openIncognitoLauncher(): void {
+  const host = getHostWindow()
+  if (host && host.isEnabled()) openLauncherWindow(host, 'incognito')
 }
 
 /**
@@ -196,6 +202,12 @@ function navigationItem(
  * hold no state, so nothing has to be rebuilt as tabs and windows come and go.
  */
 export function registerApplicationMenu(): void {
+  // AppKit normally shows the marketing version followed by the build version
+  // in parentheses. electron-builder gives both bundle fields the package
+  // version by default, which made About Fluid read "0.1.2 (0.1.2)". Keep the
+  // release version and deliberately leave the redundant build label blank.
+  if (process.platform === 'darwin') app.setAboutPanelOptions({ version: '' })
+
   const template: MenuItemConstructorOptions[] = [
     ...(process.platform === 'darwin'
       ? ([
@@ -228,6 +240,11 @@ export function registerApplicationMenu(): void {
         // launcher is where it is asked (see src/main/launcher-window.ts). The
         // sidebar's own new-tab row opens the same panel.
         { label: 'New Tab', accelerator: 'CmdOrCtrl+T', click: openLauncher },
+        {
+          label: 'New Incognito Tab',
+          accelerator: 'CmdOrCtrl+Shift+N',
+          click: openIncognitoLauncher
+        },
         // The task the tabs go in. Shifted form of New Tab's key, since the
         // two are the same move a level apart — and like it, a panel that asks
         // what the task should be. The top bar's plus button opens the same one.
@@ -317,12 +334,12 @@ export function registerApplicationMenu(): void {
         // The deliberate half of the miniplayer. A call or a video floats on
         // its own when its tab is hidden — the page decides, because only the
         // page knows what it is playing (see src/main/miniplayer.ts) — while
-        // this floats the tab whole, whatever is in it, because the user said
-        // so rather than because anything was detected.
+        // this toggles the whole tab's floating window. In a miniplayer it
+        // brings that tab back to the main window.
         {
-          label: 'Float This Tab',
+          label: 'Toggle Floating Tab',
           accelerator: 'CmdOrCtrl+Shift+P',
-          click: popOutAttachedTab
+          click: (_item, window) => toggleFloatingTab(window)
         },
         { type: 'separator' },
         // Zoom came free with Electron's default `viewMenu` role, and replacing

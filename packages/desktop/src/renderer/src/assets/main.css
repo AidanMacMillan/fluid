@@ -23,7 +23,7 @@
 @source '../../../../../agent-core/src';
 
 @theme {
-  /* Keep in sync with TITLE_BAR_HEIGHT in src/main/index.ts */
+  /* Default for windows outside the main browser. App supplies its shared native height. */
   --spacing-titlebar: 2.5rem;
 
   /* How wide a task tab gets to be. The strip sizes itself from this and the
@@ -42,6 +42,15 @@
      driven; this one reads as weight being carried, which is what makes the
      sidebar feel like it glides rather than snaps. */
   --ease-glide: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* Scope Tailwind's spacing unit to the main browser's navigation and sidebar.
+   All numeric padding, gaps, offsets and control sizes inherit the same scale.
+   Content views, panels, the sidebar dock and its width limits stay independent.
+   Font sizes use rem and are deliberately unaffected. */
+.browser-chrome {
+  --spacing: calc(0.25rem * var(--chrome-density, 1));
+  --sidebar-indent: calc(3 * var(--spacing));
 }
 
 /* Dragging the custom title bar moves the window. Interactive elements placed

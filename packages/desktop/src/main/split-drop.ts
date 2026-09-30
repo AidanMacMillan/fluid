@@ -1,3 +1,4 @@
+import { raiseSidebarPanel } from './sidebar-panel'
 import { join } from 'path'
 import { WebContentsView, type BrowserWindow } from 'electron'
 import { is } from '@electron-toolkit/utils'
@@ -80,6 +81,7 @@ export function showSplitDrop(window: BrowserWindow, bounds: ViewBounds): void {
   const glass = ensureView()
   send({ box: null })
   window.contentView.addChildView(glass)
+  raiseSidebarPanel()
   glass.setBounds({
     x: Math.round(bounds.x),
     y: Math.round(bounds.y),

@@ -391,10 +391,10 @@
     void workspace.endSplitResize(place.divider, share)
   }
 
-  // The corner beside the sidebar is only rounded while the sidebar is out.
+  // The corner beside the sidebar is only rounded while the sidebar is docked.
   // Away, the well meets the window's edge and the curve would read as a nick out of
   // it, so it squares off — in step with the slide, not ahead of it.
-  const leadingRadius = $derived(workspace.sidebarOut ? 'var(--radius-surface)' : '0px')
+  const leadingRadius = $derived(!workspace.sidebarCollapsed ? 'var(--radius-surface)' : '0px')
 </script>
 
 <main

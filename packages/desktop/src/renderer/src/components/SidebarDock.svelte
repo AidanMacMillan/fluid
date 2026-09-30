@@ -2,10 +2,15 @@
   import { SIDEBAR_WIDTH, workspace } from '../lib/workspace.svelte'
   import ResizeHandle from './ResizeHandle.svelte'
   import Sidebar from './Sidebar.svelte'
+  import { reorder } from '../lib/reorder.svelte'
+  import { titleBarHeight } from '../../../shared/appearance'
+  import { SIDEBAR_OPEN_MS, SIDEBAR_CLOSE_MS } from '../../../shared/sidebar-panel'
+
+  const { density }: { density: number } = $props()
 
   /**
-   * How long the sidebar stays out after the pointer leaves it. Without the
-   * grace period, clipping its edge on the way somewhere else makes it flicker.
+   * Allows the edge strip to hand the pointer to the native panel before its
+   * hover report arrives. Leaving the panel itself bypasses this delay.
    */
   const HIDE_DELAY_MS = 220
 
@@ -30,17 +35,19 @@
    * of the two on purpose: a panel on its way out has nothing left to show, and
    * holding the same pace both ways makes it feel reluctant to go.
    */
-  const OPEN_MS = 260
-  const CLOSE_MS = 200
+  const OPEN_MS = SIDEBAR_OPEN_MS
+  const CLOSE_MS = SIDEBAR_CLOSE_MS
 
   let dock = $state<HTMLElement | null>(null)
   let timer: ReturnType<typeof setTimeout> | undefined
+  let panelHovered = false
+  let panelDragging = false
   let wasOpen = false
   let reopenAfter = 0
 
   const right = $derived(workspace.sidebarPosition === 'right')
   const collapsed = $derived(workspace.sidebarCollapsed)
-  const open = $derived(workspace.sidebarOut)
+  const open = $derived(!collapsed)
 
   /**
    * What the dock is animating towards. The width lives here rather than on the
@@ -79,7 +86,7 @@
       // not really left — during a drag it never reports leaving at all. Both
       // wait another round rather than cancelling, so the peek still ends once
       // neither is true.
-      if (workspace.sidebarResizing || dock?.matches(':hover')) {
+      if (workspace.sidebarResizing || panelHovered || panelDragging || dock?.matches(':hover')) {
         hide()
         return
       }
@@ -87,21 +94,33 @@
     }, HIDE_DELAY_MS)
   }
 
+  function hideImmediately(): void {
+    clearTimeout(timer)
+    // Finish an active gesture before taking its source out from under it.
+    if (workspace.sidebarResizing || panelDragging) return
+    workspace.sidebarPeeking = false
+  }
+
   // Docking the sidebar ends any peek still in flight, so the next collapse
   // starts from the strip rather than from a sidebar nothing is hovering.
   $effect(() => {
-    if (!collapsed) workspace.sidebarPeeking = false
+    if (!collapsed) {
+      workspace.sidebarPeeking = false
+      panelHovered = false
+      panelDragging = false
+    }
   })
 
   // Let a close finish before accepting another edge entry. Ignored entries
   // are not queued: a pointer left on the strip must leave and enter again.
   // Run before DOM updates, which can themselves produce hover crossings.
   $effect.pre(() => {
-    if (wasOpen && !open) {
+    const visible = workspace.sidebarOut
+    if (wasOpen && !visible) {
       clearTimeout(timer)
       reopenAfter = performance.now() + CLOSE_MS
     }
-    wasOpen = open
+    wasOpen = visible
   })
 
   /**
@@ -118,13 +137,60 @@
    * What comes back: the pointer crossing into that band and out of it, handled
    * as the `mouseenter` and `mouseleave` the strip would have had. Leaving in
    * particular goes through the same grace period, which is what keeps the peek
-   * up through the hand-off — the sidebar sliding out puts itself under the
-   * pointer, and the page it just left reports a pointer gone at the same
-   * moment the dock starts being hovered for real.
+   * up through the hand-off — the native panel arrives over the page and
+   * reports its own hover as the page reports the pointer leaving.
    */
   $effect(() => window.api.browser.onPeek((inside) => (inside ? show() : hide())))
 
-  $effect(() => () => clearTimeout(timer))
+  // The native panel shares the host's current task and live tab state. Only
+  // docking changes this component's layout width; peeking never touches it.
+  $effect(() => {
+    window.api.sidebar.updatePanel(
+      $state.snapshot({
+        projects: workspace.projects,
+        activeProjectId: workspace.activeProjectId,
+        tasks: workspace.tasks,
+        tabs: workspace.tabs,
+        folders: workspace.folders,
+        activeTaskId: workspace.activeTaskId,
+        pages: workspace.pages,
+        downloads: workspace.downloads,
+        sidebarWidth: workspace.sidebarWidth,
+        sidebarPosition: workspace.sidebarPosition,
+        open: collapsed && workspace.sidebarPeeking,
+        collapsed,
+        density,
+        top: titleBarHeight(density)
+      })
+    )
+  })
+
+  $effect(() =>
+    window.api.sidebar.onPanelReport((report) => {
+      if (report.kind === 'hover') {
+        panelHovered = report.inside
+        if (report.inside) keepOpen()
+        else hideImmediately()
+      } else if (report.kind === 'resize') {
+        if (report.commit) {
+          workspace.endSidebarResize(report.width)
+          if (!panelHovered) hideImmediately()
+        } else workspace.resizeSidebar(report.width)
+      } else if (report.kind === 'drag') {
+        const wasDragging = panelDragging
+        panelDragging = report.item !== null
+        reorder.acceptSidebarDrag(report.item, report.section)
+        if (wasDragging && !panelDragging && !panelHovered) hideImmediately()
+      } else {
+        panelHovered = false
+        workspace.sidebarPeeking = false
+      }
+    })
+  )
+
+  $effect(() => () => {
+    clearTimeout(timer)
+  })
 </script>
 
 <!-- The dock carries the sidebar and the pointer target both, so moving from
