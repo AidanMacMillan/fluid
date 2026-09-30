@@ -6,8 +6,7 @@ export const UI_DENSITY_SETTING = 'appearance.uiDensity'
 export const UI_DENSITY = { min: 0.85, default: 1, max: 1.3 } as const
 export const UI_DENSITY_MARKS = [
   { label: 'Compact', value: UI_DENSITY.min },
-  { label: 'Tight', value: UI_DENSITY.default },
-  { label: 'Medium', value: UI_DENSITY.max }
+  { label: 'Spacious', value: UI_DENSITY.max }
 ] as const
 
 export function uiDensity(value: unknown): number {
@@ -21,7 +20,7 @@ const upperRange = UI_DENSITY.max - UI_DENSITY.default
 const curve = 2 * (upperRange - lowerRange)
 const slope = 3 * lowerRange - upperRange
 
-/** A smooth quadratic puts Tight halfway along the continuous 0–1 slider. */
+/** A smooth quadratic puts the default halfway along the continuous 0–1 slider. */
 export function densityFromSlider(position: number): number {
   const t = Number.isFinite(position) ? Math.min(1, Math.max(0, position)) : 0.5
   return uiDensity(UI_DENSITY.min + t * (slope + curve * t))
@@ -48,7 +47,8 @@ export function sidebarPosition(value: unknown): SidebarPosition {
   return value === 'right' ? 'right' : 'left'
 }
 
-/** Window glass is on unless the user has explicitly turned it off. */
-export function windowTransparency(value: unknown): boolean {
-  return value !== false
+/** 0 disables glass; 1 exposes the full native material. Preserve old toggles. */
+export function windowTransparency(value: unknown): number {
+  if (value === false) return 0
+  return typeof value === 'number' && Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 1
 }

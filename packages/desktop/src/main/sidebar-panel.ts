@@ -20,7 +20,11 @@ let closing: ReturnType<typeof setTimeout> | undefined
 function ensureView(): WebContentsView {
   if (view) return view
   const created = new WebContentsView({
-    webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false }
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      sandbox: false,
+      scrollBounce: true
+    }
   })
   created.setBackgroundColor('#00000000')
   created.webContents.on('will-navigate', (event) => event.preventDefault())

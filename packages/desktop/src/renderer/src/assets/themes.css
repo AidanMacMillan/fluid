@@ -39,9 +39,10 @@
   --theme-ink-900: oklch(21% 0.006 285.885);
   --theme-ink-950: oklch(14.1% 0.005 285.823);
 
-  /* The tint the window's glass is laid with (`glass-scrim`), and the stronger
-     one panels floating over the app's own content get (`glass-popover`). */
-  --theme-scrim: oklch(27.4% 0.006 286.033 / 75%);
+  /* A light tint at maximum transparency (`glass-scrim`); window-appearance
+     adds the remaining shade as the slider moves toward opaque. Floating
+     menus keep their stronger tint (`glass-popover`) for readability. */
+  --theme-scrim: oklch(27.4% 0.006 286.033 / 20%);
   --theme-popover-opacity: 94%;
   --theme-popover: oklch(27.4% 0.006 286.033 / var(--theme-popover-opacity));
 
@@ -88,7 +89,7 @@
 
   /* Dark, but short of black: pulled much further down than the default's
      glass, and still letting enough of the desktop through to read as glass. */
-  --theme-scrim: oklch(19% 0.014 45 / 76%);
+  --theme-scrim: oklch(19% 0.014 45 / 22%);
   --theme-popover-opacity: 95%;
   --theme-popover: oklch(13% 0.01 45 / var(--theme-popover-opacity));
   --theme-well: oklch(0% 0 0 / 32%);
@@ -133,7 +134,7 @@
 
   /* A shade darker than the default's glass and tinted towards navy, still
      thin enough for the desktop to come through. */
-  --theme-scrim: oklch(20% 0.022 270 / 76%);
+  --theme-scrim: oklch(20% 0.022 270 / 22%);
   --theme-popover-opacity: 95%;
   --theme-popover: oklch(15% 0.02 270 / var(--theme-popover-opacity));
   --theme-well: oklch(5% 0.02 270 / 28%);
@@ -174,7 +175,7 @@
   --theme-ink-900: oklch(16% 0 0);
   --theme-ink-950: oklch(10% 0 0);
 
-  --theme-scrim: oklch(13% 0 0 / 82%);
+  --theme-scrim: oklch(13% 0 0 / 28%);
   --theme-popover-opacity: 96%;
   --theme-popover: oklch(11% 0 0 / var(--theme-popover-opacity));
   --theme-well: oklch(0% 0 0 / 35%);
@@ -206,7 +207,7 @@
   --theme-ink-950: oklch(14% 0.01 240);
 
   /* Lighter and colder than the others' glass: frosted rather than dark. */
-  --theme-scrim: oklch(25% 0.022 238 / 72%);
+  --theme-scrim: oklch(25% 0.022 238 / 18%);
   --theme-popover-opacity: 94%;
   --theme-popover: oklch(20% 0.02 238 / var(--theme-popover-opacity));
   --theme-well: oklch(10% 0.02 240 / 22%);
@@ -248,7 +249,7 @@
   --theme-ink-900: oklch(19% 0.005 350);
   --theme-ink-950: oklch(13% 0.004 350);
 
-  --theme-scrim: oklch(24% 0.005 350 / 75%);
+  --theme-scrim: oklch(24% 0.005 350 / 20%);
   --theme-popover-opacity: 95%;
   --theme-popover: oklch(19% 0.005 350 / var(--theme-popover-opacity));
   --theme-well: oklch(0% 0 0 / 22%);

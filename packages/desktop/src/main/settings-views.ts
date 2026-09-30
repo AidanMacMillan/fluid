@@ -47,6 +47,7 @@ function create(window: BrowserWindow, extensionId: string): Shown {
       contextIsolation: true,
       sandbox: true,
       nodeIntegration: false,
+      scrollBounce: true,
       partition: extensionPartition(extensionId),
       preload: EXTENSION_VIEW_PRELOAD
     }

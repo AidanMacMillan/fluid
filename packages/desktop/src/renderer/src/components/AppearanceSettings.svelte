@@ -19,9 +19,12 @@
   let selected = $state<SidebarPosition>('left')
   let loaded = $state(false)
   let saving = $state(false)
-  let transparency = $state(true)
+  let transparency = $state(1)
   let transparencyLoaded = $state(false)
   let transparencySaving = $state(false)
+  let transparencyError = $state<string | null>(null)
+  let savedTransparency = 1
+  let pendingTransparency: number | null = null
   let error = $state<string | null>(null)
   let density = $state<number>(UI_DENSITY.default)
   let densityLoaded = $state(false)
@@ -86,10 +89,11 @@
       'settings.get',
       { key: WINDOW_TRANSPARENCY_SETTING },
       (value) => {
-        transparency = windowTransparency(value)
+        if (transparencySaving) return
+        transparency = savedTransparency = windowTransparency(value)
         transparencyLoaded = true
       },
-      (cause) => (error = reasonFrom(cause))
+      (cause) => (transparencyError = reasonFrom(cause))
     )
   )
 
@@ -109,16 +113,25 @@
     }
   }
 
-  async function setTransparency(enabled: boolean): Promise<void> {
-    const previous = transparency
-    transparency = enabled
+  async function setTransparency(value: number): Promise<void> {
+    transparency = pendingTransparency = windowTransparency(value)
+    transparencyError = null
+    if (transparencySaving) return
     transparencySaving = true
-    error = null
     try {
-      await fluid.settings.set({ key: WINDOW_TRANSPARENCY_SETTING, value: enabled })
-    } catch (cause) {
-      transparency = previous
-      error = reasonFrom(cause)
+      // Keep dragging responsive while persisting the final position in order.
+      while (pendingTransparency !== null) {
+        const next = pendingTransparency
+        pendingTransparency = null
+        try {
+          await fluid.settings.set({ key: WINDOW_TRANSPARENCY_SETTING, value: next })
+          savedTransparency = next
+          transparencyError = null
+        } catch (cause) {
+          transparencyError = reasonFrom(cause)
+          if (pendingTransparency === null) transparency = savedTransparency
+        }
+      }
     } finally {
       transparencySaving = false
     }
@@ -162,7 +175,7 @@
           value={densityToSlider(density)}
           disabled={!densityLoaded}
           aria-describedby="density-description"
-          aria-valuetext={`${Math.round(density * 100)}% spacing${density === UI_DENSITY.default ? ', Tight, default' : ''}`}
+          aria-valuetext={`${Math.round(density * 100)}% spacing${density === UI_DENSITY.default ? ', default' : ''}`}
           oninput={(event) => void setDensity(densityFromSlider(event.currentTarget.valueAsNumber))}
         />
       </div>
@@ -172,28 +185,37 @@
 
   <section aria-labelledby="window-heading">
     <h2 id="window-heading" class="mb-3 text-xs font-medium text-ink-200">Window</h2>
-    <div class="flex items-center justify-between gap-4 rounded-lg bg-white/5 p-3 text-xs">
-      <div>
-        <p id="window-transparency-label" class="font-medium text-ink-100">Transparency</p>
-        <p class="mt-1 text-ink-400">Let the desktop show through app windows.</p>
+    <div class="rounded-lg bg-white/5 p-3 text-xs">
+      <div class="flex items-center justify-between gap-3">
+        <label for="window-transparency" class="font-medium text-ink-100">Transparency</label>
+        <span class="text-ink-400 tabular-nums">
+          {transparency === 0 ? 'Off' : `${Math.round(transparency * 100)}%`}
+        </span>
       </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={transparency}
-        aria-labelledby="window-transparency-label"
-        onclick={() => void setTransparency(!transparency)}
-        disabled={!transparencyLoaded || transparencySaving}
-        class="relative h-5 w-9 shrink-0 rounded-full ring-1 transition-colors
-               disabled:pointer-events-none disabled:opacity-40
-               {transparency ? 'bg-switch-on ring-white/20' : 'bg-white/10 ring-white/15'}"
-      >
-        <span
-          class="absolute top-0.5 size-4 rounded-full bg-ink-100 shadow transition-[left]
-                 {transparency ? 'left-[1.125rem]' : 'left-0.5'}"
-          aria-hidden="true"
-        ></span>
-      </button>
+      <p id="transparency-description" class="mt-1 text-ink-400">
+        Adjust how much the desktop shows through app windows. Fully opaque turns transparency off.
+      </p>
+      <div class="mt-5">
+        <div class="mb-1 flex justify-between text-[0.6875rem] text-ink-400" aria-hidden="true">
+          <span>Fully opaque</span>
+          <span>Maximum transparency</span>
+        </div>
+        <input
+          id="window-transparency"
+          type="range"
+          min={0}
+          max={1}
+          step={0.01}
+          value={transparency}
+          disabled={!transparencyLoaded}
+          aria-describedby="transparency-description"
+          aria-valuetext={transparency === 0
+            ? 'Fully opaque, transparency off'
+            : `${Math.round(transparency * 100)}% transparency`}
+          oninput={(event) => void setTransparency(event.currentTarget.valueAsNumber)}
+        />
+      </div>
+      {#if transparencyError}<p role="alert" class="mt-3 text-red-400">{transparencyError}</p>{/if}
     </div>
   </section>
 

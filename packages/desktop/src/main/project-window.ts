@@ -145,7 +145,8 @@ export function openProjectWindow(parent: BrowserWindow): void {
     ...windowAppearance('under-window'),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      sandbox: false,
+      scrollBounce: true
     }
   })
   trackWindowAppearance(window, 'under-window')

@@ -9,7 +9,7 @@ const TRANSPARENT_BACKGROUND = '#00000000'
 
 type Vibrancy = Exclude<Parameters<BaseWindow['setVibrancy']>[0], null>
 
-let transparency = true
+let transparency = 1
 const windows = new Map<BaseWindow, Vibrancy>()
 
 /**
@@ -31,6 +31,7 @@ export function windowAppearance(material: Vibrancy): Partial<BaseWindowConstruc
 /** Follows preference changes for the lifetime of a window. */
 export function trackWindowAppearance(window: BaseWindow, material: Vibrancy): void {
   windows.set(window, material)
+  apply(window, material)
   window.once('closed', () => windows.delete(window))
 }
 
@@ -39,10 +40,15 @@ function apply(window: BaseWindow, material: Vibrancy): void {
   if (transparency) {
     window.setVibrancy(material)
     window.setBackgroundColor(TRANSPARENT_BACKGROUND)
+    // Tint the content view above the native material, below all text and tabs.
+    // Window opacity would also fade text, and a native background alone sits
+    // behind vibrancy on BaseWindows (such as the floating miniplayer).
+    window.contentView.setBackgroundColor(`rgba(24, 24, 27, ${1 - transparency})`)
   } else {
     // Put an opaque canvas in place before removing the material so no clear
     // frame can expose the desktop while an open window changes appearance.
     window.setBackgroundColor(OPAQUE_BACKGROUND)
+    window.contentView.setBackgroundColor(OPAQUE_BACKGROUND)
     window.setVibrancy(null)
   }
 }
