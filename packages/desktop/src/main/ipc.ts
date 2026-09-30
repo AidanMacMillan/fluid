@@ -123,6 +123,9 @@ function windowForSender(contents: WebContents): BrowserWindow | null {
 // Deliberately a named surface rather than a generic "run this SQL" channel:
 // the renderer only gets the operations it actually needs.
 export function registerIpcHandlers(): void {
+  ipcMain.on('window:fullscreen', (event) => {
+    event.returnValue = BrowserWindow.fromWebContents(event.sender)?.isFullScreen() ?? false
+  })
   ipcMain.on('haptics:alignment', (event) => {
     const host = getHostWindow()
     if (host?.webContents !== event.sender || event.senderFrame !== event.sender.mainFrame) return

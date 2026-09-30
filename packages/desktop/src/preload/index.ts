@@ -77,6 +77,14 @@ ipcRenderer.on('theme:changed', (_e, theme: string) => applyTheme(theme))
 
 // Custom APIs for renderer
 const api = {
+  window: {
+    isFullScreen: (): boolean => ipcRenderer.sendSync('window:fullscreen') as boolean,
+    onFullScreenChanged: (listener: (fullscreen: boolean) => void): (() => void) => {
+      const handler = (_e: unknown, fullscreen: boolean): void => listener(fullscreen)
+      ipcRenderer.on('window:fullscreen-changed', handler)
+      return () => ipcRenderer.off('window:fullscreen-changed', handler)
+    }
+  },
   appearance: {
     /** First-frame density, already loaded before the main window was created. */
     density: (): number => ipcRenderer.sendSync('appearance:density') as number

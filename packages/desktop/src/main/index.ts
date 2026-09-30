@@ -86,6 +86,13 @@ function createWindow(): void {
   trackWindowAppearance(mainWindow, VIBRANCY_MATERIALS[0])
   trackWindowDensity(mainWindow)
 
+  mainWindow.on('enter-full-screen', () => {
+    mainWindow.webContents.send('window:fullscreen-changed', true)
+  })
+  mainWindow.on('leave-full-screen', () => {
+    mainWindow.webContents.send('window:fullscreen-changed', false)
+  })
+
   // Browser tabs render as native child views of this window's content view.
   registerHostWindow(mainWindow)
 

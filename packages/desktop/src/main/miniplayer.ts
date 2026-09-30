@@ -377,6 +377,11 @@ function adoptMiniplayerWindow(tabId: string, page: WebContents, floating: Float
         .catch(() => undefined)
     }
   })
+
+  // Automatic entry must never interrupt the window the user switched to.
+  // Keep the player focusable so its controls still work when clicked.
+  if (offered) window.showInactive()
+  else window.show()
 }
 
 /**
@@ -418,6 +423,7 @@ export function popOut(tabId: string, view: WebContentsView, host: BrowserWindow
       y: place?.y ?? Math.round(area.y + area.height - height - INSET)
     })
   }
+  poppedOut.window.show()
   floatingChanged()
 }
 
@@ -428,6 +434,8 @@ export function popOut(tabId: string, view: WebContentsView, host: BrowserWindow
 function createFloating(tabId: string, view: WebContentsView, bounds: Rectangle): Floating {
   const window = new BaseWindow({
     ...bounds,
+    // The caller decides whether opening this window should activate it.
+    show: false,
     frame: false,
     resizable: true,
     minimizable: false,

@@ -71,14 +71,21 @@
    the resting 88px while it does, and titlebar-area-width trails the window's
    real width, so a bar laid out from them shakes sideways for as long as the
    window is being resized. `trafficLightPosition` in src/main/index.ts pins the
-   buttons, so the inset never actually changes: keep 88px in sync with it. */
+   buttons, so an 80px windowed inset leaves a small gap after the green button
+   without the overlay's extra trailing space.
+   Native fullscreen hides the buttons and uses the same small inset as the
+   trailing edge instead. */
 @utility titlebar-safe-area {
   margin-left: env(titlebar-area-x, 0px);
   width: env(titlebar-area-width, 100%);
 
   :root[data-platform='darwin'] & {
-    margin-left: 88px;
+    margin-left: 80px;
     width: auto;
+  }
+
+  :root[data-platform='darwin'][data-fullscreen='true'] & {
+    margin-left: calc(2 * var(--spacing));
   }
 }
 

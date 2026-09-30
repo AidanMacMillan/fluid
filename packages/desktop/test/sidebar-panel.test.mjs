@@ -35,6 +35,9 @@ function setup() {
     setBackgroundColor(color) {
       this.background = color
     }
+    setVisible(value) {
+      this.visible = value
+    }
     setBounds(bounds) {
       this.bounds = { ...bounds }
     }
@@ -127,6 +130,21 @@ test('peek overlays a live page without changing its bounds, on either edge', as
   app.host.emit('resize')
   assert.deepEqual(panel.bounds, { x: 882, y: 40, width: 318, height: 760 })
   assert.deepEqual(page.bounds, { x: 0, y: 76, width: 1000, height: 624 })
+})
+
+test('HTML fullscreen hides the hover panel even when an open request is pending', async () => {
+  const app = setup()
+  app.update({ open: true })
+  app.api.suppressSidebarPanel(true)
+  await app.loaded()
+  const panel = app.panels[0]
+  assert.equal(panel.visible, false)
+  app.update({ open: true })
+  app.api.raiseSidebarPanel()
+  await Promise.resolve()
+  assert.equal(panel.visible, false)
+  app.api.suppressSidebarPanel(false)
+  assert.equal(panel.visible, true)
 })
 
 test('closing waits for the slide, reopening cancels detach, docking removes the overlay', async () => {
