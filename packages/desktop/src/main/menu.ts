@@ -202,6 +202,12 @@ function navigationItem(
  * hold no state, so nothing has to be rebuilt as tabs and windows come and go.
  */
 export function registerApplicationMenu(): void {
+  // AppKit normally shows the marketing version followed by the build version
+  // in parentheses. electron-builder gives both bundle fields the package
+  // version by default, which made About Fluid read "0.1.2 (0.1.2)". Keep the
+  // release version and deliberately leave the redundant build label blank.
+  if (process.platform === 'darwin') app.setAboutPanelOptions({ version: '' })
+
   const template: MenuItemConstructorOptions[] = [
     ...(process.platform === 'darwin'
       ? ([

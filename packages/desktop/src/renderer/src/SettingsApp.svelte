@@ -75,7 +75,13 @@
      main.css), so it reads as the same stuff as the window it opens over.
      Nothing here paints an edge: the window's own rounded corner and shadow are
      the panel's edge. -->
-<div class="flex h-screen text-ink-100 text-on-glass">
+<!-- Pinned to the viewport rather than sized with `100vh`. Electron can resize
+     this frameless, non-resizable panel after it opens when the parent window
+     changes size; on macOS the viewport unit can retain the panel's previous
+     height for a frame (and sometimes until another resize), leaving the
+     native window's newly exposed lower half empty. Insets follow the actual
+     layout viewport, so the nav and its scrolling panel always fill it. -->
+<div class="fixed inset-0 flex min-h-0 text-ink-100 text-on-glass">
   <!-- The sections, and the whole of the panel's chrome. Nothing above them
        names the window: it was opened from a control that says Settings, and the
        sections themselves say what it holds. A bar repeating that would be a
