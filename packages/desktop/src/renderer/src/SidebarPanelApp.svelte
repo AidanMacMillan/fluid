@@ -97,7 +97,9 @@
     style:--panel-duration="{open ? SIDEBAR_OPEN_MS : SIDEBAR_CLOSE_MS}ms"
     inert={!open}
   >
-    <div class="h-full overflow-hidden rounded-xl glass-popover"><Sidebar /></div>
+    <div class="sidebar-background h-full overflow-hidden rounded-xl glass-popover">
+      <Sidebar />
+    </div>
     <ResizeHandle
       label="Resize sidebar"
       class="absolute inset-y-3 z-10 w-2 {right ? '-left-1' : '-right-1'}"
@@ -112,6 +114,11 @@
 </div>
 
 <style>
+  .sidebar-background {
+    /* Match the docked tint while retaining the overlay's glass treatment. */
+    --theme-popover: oklch(from var(--theme-scrim) l c h / var(--theme-popover-opacity));
+  }
+
   .sidebar-panel {
     inset-block: var(--panel-inset);
     left: var(--panel-inset);

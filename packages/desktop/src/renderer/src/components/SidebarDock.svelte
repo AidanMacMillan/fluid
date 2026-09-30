@@ -9,8 +9,8 @@
   const { density }: { density: number } = $props()
 
   /**
-   * How long the sidebar stays out after the pointer leaves it. Without the
-   * grace period, clipping its edge on the way somewhere else makes it flicker.
+   * Allows the edge strip to hand the pointer to the native panel before its
+   * hover report arrives. Leaving the panel itself bypasses this delay.
    */
   const HIDE_DELAY_MS = 220
 
@@ -94,6 +94,13 @@
     }, HIDE_DELAY_MS)
   }
 
+  function hideImmediately(): void {
+    clearTimeout(timer)
+    // Finish an active gesture before taking its source out from under it.
+    if (workspace.sidebarResizing || panelDragging) return
+    workspace.sidebarPeeking = false
+  }
+
   // Docking the sidebar ends any peek still in flight, so the next collapse
   // starts from the strip rather than from a sidebar nothing is hovering.
   $effect(() => {
@@ -163,14 +170,17 @@
       if (report.kind === 'hover') {
         panelHovered = report.inside
         if (report.inside) keepOpen()
-        else hide()
+        else hideImmediately()
       } else if (report.kind === 'resize') {
-        if (report.commit) workspace.endSidebarResize(report.width)
-        else workspace.resizeSidebar(report.width)
+        if (report.commit) {
+          workspace.endSidebarResize(report.width)
+          if (!panelHovered) hideImmediately()
+        } else workspace.resizeSidebar(report.width)
       } else if (report.kind === 'drag') {
+        const wasDragging = panelDragging
         panelDragging = report.item !== null
         reorder.acceptSidebarDrag(report.item, report.section)
-        if (!panelDragging) hide()
+        if (wasDragging && !panelDragging && !panelHovered) hideImmediately()
       } else {
         panelHovered = false
         workspace.sidebarPeeking = false
