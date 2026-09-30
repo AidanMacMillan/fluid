@@ -2,6 +2,7 @@
   import {
     TASK_COLORS,
     TASK_ICONS,
+    keepSelectionInView,
     taskIcon,
     type Task,
     type TaskColor,
@@ -160,21 +161,6 @@
     }
   }
 
-  /**
-   * The grid, which scrolls rather than growing past what the window allows —
-   * the whole set fits as drawn, but the panel is capped to the window it opens
-   * over (see src/main/launcher-window.ts), and a short one would otherwise cut
-   * off the palette. So the highlighted glyph is kept in view as the arrow keys
-   * move it.
-   */
-  let grid = $state<HTMLElement | null>(null)
-
-  $effect(() => {
-    void selected
-    void icons
-    grid?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' })
-  })
-
   /** The panel itself, measured so the window can be sized to it, as the launcher's is. */
   let panel = $state<HTMLElement | null>(null)
 
@@ -219,9 +205,9 @@
 
   {#if icons.length > 0}
     <div
+      use:keepSelectionInView
       role="listbox"
       aria-label="Icons"
-      bind:this={grid}
       class="grid max-h-96 gap-0.5 overflow-y-auto p-1.5"
       style="grid-template-columns: repeat({COLUMNS}, minmax(0, 1fr))"
     >

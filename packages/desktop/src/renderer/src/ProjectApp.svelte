@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { keepSelectionInView } from '@fluid/sdk'
   import type { ProjectRow, ProjectsState } from '../../main/projects'
   import type { SpaceRow } from '../../main/spaces'
   import { matchesQuery } from './lib/search'
@@ -683,7 +684,11 @@
   {/if}
 
   {#if prompt === null && view === 'projects'}
-    <ul aria-label="Projects" class="flex max-h-96 flex-col gap-0.5 overflow-y-auto p-1.5">
+    <ul
+      use:keepSelectionInView
+      aria-label="Projects"
+      class="flex max-h-96 flex-col gap-0.5 overflow-y-auto p-1.5"
+    >
       {#each matches as project, index (project.id)}
         <li>
           <!-- Hover moves the selection rather than drawing a second highlight
@@ -791,7 +796,11 @@
       </li>
     </ul>
   {:else if prompt === null && view === 'spaces'}
-    <ul aria-label="Spaces" class="flex max-h-96 flex-col gap-0.5 overflow-y-auto p-1.5">
+    <ul
+      use:keepSelectionInView
+      aria-label="Spaces"
+      class="flex max-h-96 flex-col gap-0.5 overflow-y-auto p-1.5"
+    >
       {#each spaceMatches as space, index (space.id)}
         <li>
           <button

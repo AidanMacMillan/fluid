@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { keepSelectionInView } from '@fluid/sdk'
   import { untrack } from 'svelte'
   import type { ThreadUser } from '../../main/slack-thread'
   import { slackWorkspace } from '../lib/slack.svelte'
@@ -373,6 +374,7 @@
          is nowhere else for it to go and nothing to be gained by chasing the
          caret across one line of text. -->
     <ul
+      use:keepSelectionInView
       class="absolute bottom-full left-4 z-30 mb-1 max-h-64 w-72 overflow-y-auto rounded-lg
              glass-scrim p-1 shadow-xl ring-1 ring-white/15"
       aria-label="People to mention"

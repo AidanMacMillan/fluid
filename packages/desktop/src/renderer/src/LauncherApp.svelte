@@ -2,6 +2,7 @@
   import {
     asksForInput,
     forTypedText,
+    keepSelectionInView,
     launcherDetail,
     type Bookmark,
     type LauncherAlternative,
@@ -787,6 +788,7 @@
        lost something. -->
   {#if choices.length > 0}
     <ul
+      use:keepSelectionInView
       aria-label={mode === 'task' ? 'New task' : 'Open'}
       class="flex max-h-96 flex-col gap-0.5 overflow-y-auto p-1.5"
     >
