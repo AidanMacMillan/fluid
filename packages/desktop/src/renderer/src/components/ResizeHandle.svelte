@@ -115,7 +115,7 @@
     // it is for all of the drag but the first pixel, and it is what holds the
     // resize cursor while the pointer is over the page.
     handle?.setPointerCapture(event.pointerId)
-    drag = { pointerId: event.pointerId, x: event.clientX, width }
+    drag = { pointerId: event.pointerId, x: event.screenX, width }
     wanted = width
   }
 
@@ -131,7 +131,7 @@
     // Measured from where the drag began rather than from the current width:
     // once clamped, the width stops tracking the pointer, and a step-by-step
     // sum would lose the distance the pointer covered past the end.
-    wanted = drag.width + factor * (event.clientX - drag.x)
+    wanted = drag.width + factor * (event.screenX - drag.x)
     onresize(clamp(wanted))
   }
 

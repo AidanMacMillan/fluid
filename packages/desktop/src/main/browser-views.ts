@@ -1,3 +1,4 @@
+import { destroySidebarPanel, raiseSidebarPanel } from './sidebar-panel'
 import type { SidebarPosition } from '../shared/appearance'
 import {
   BrowserWindow,
@@ -1701,6 +1702,7 @@ function attach(
     placement = { measured, bounds: NO_BOUNDS }
     attached.set(tabId, placement)
     window.contentView.addChildView(view)
+    raiseSidebarPanel()
   }
   rebase(placement)
   applyBounds(view, placement.bounds)
@@ -2265,4 +2267,5 @@ export function destroyAllBrowserViews(): void {
   destroyZoomIndicator()
   destroyFindBar()
   destroySplitDrop()
+  destroySidebarPanel()
 }

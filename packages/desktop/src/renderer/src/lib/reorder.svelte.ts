@@ -456,6 +456,17 @@ class Reorder {
     return item
   }
 
+  /** A drag from the native peek panel can land on the host's tasks or panes. */
+  acceptSidebarDrag(item: SidebarItemRef | null, section: SidebarSection): void {
+    if (!item) {
+      this.end()
+      return
+    }
+    this.carrying = item
+    this.kind = section
+    this.tab = item.kind === 'tab' ? item.id : null
+  }
+
   /** Drops the pending line when the pointer leaves the container for good. */
   leave(event: DragEvent): void {
     const container = event.currentTarget as HTMLElement

@@ -146,8 +146,8 @@ class Workspace {
   sidebarPeeking = $state(false)
 
   /**
-   * Whether the sidebar is out at all, docked or peeking — which is to say
-   * whether the content well starts at the window's left edge or inboard of it.
+   * Whether the sidebar is visible, docked or in its floating peek panel.
+   * Only a docked sidebar reserves space in the content layout.
    */
   get sidebarOut(): boolean {
     return !this.sidebarCollapsed || this.sidebarPeeking

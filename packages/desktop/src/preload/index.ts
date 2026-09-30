@@ -1,3 +1,4 @@
+import type { SidebarPanelState, SidebarPanelReport } from '../shared/sidebar-panel'
 import type { SidebarPosition } from '../shared/appearance'
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
@@ -443,6 +444,20 @@ const api = {
     }
   },
   sidebar: {
+    updatePanel: (state: SidebarPanelState): void => ipcRenderer.send('sidebar:state', state),
+    reportPanel: (report: SidebarPanelReport): void => ipcRenderer.send('sidebar:report', report),
+    onPanelState: (listener: (state: SidebarPanelState) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, state: SidebarPanelState): void =>
+        listener(state)
+      ipcRenderer.on('sidebar:state', handler)
+      return () => ipcRenderer.off('sidebar:state', handler)
+    },
+    onPanelReport: (listener: (report: SidebarPanelReport) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, report: SidebarPanelReport): void =>
+        listener(report)
+      ipcRenderer.on('sidebar:report', handler)
+      return () => ipcRenderer.off('sidebar:report', handler)
+    },
     /**
      * Cmd+S, from the application menu. The sidebar's state belongs to the
      * renderer, so main asks rather than tells; the accelerator exists at all
