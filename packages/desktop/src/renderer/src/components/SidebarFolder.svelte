@@ -3,16 +3,19 @@
   import { ACTIVITY_DOT, ACTIVITY_LABEL, strongerActivity } from '../lib/activity'
   import { reorder, type SidebarSection } from '../lib/reorder.svelte'
   import type { SidebarRow } from '../lib/sidebar-rows'
-  import { workspace } from '../lib/workspace.svelte'
+  import { SIDEBAR_WIDTH, workspace } from '../lib/workspace.svelte'
 
   type Props = {
     /** The folder, and where it sits, on the terms a tab's row has them. */
     row: Extract<SidebarRow, { kind: 'folder' }>
     /** Only the last row draws the line for the slot past the end of the section. */
     last: boolean
+    compact?: boolean
+    covered?: boolean
+    card?: boolean
   }
 
-  const { row, last }: Props = $props()
+  const { row, last, compact = false, card = false, covered = false }: Props = $props()
   const folder = $derived(row.folder)
   const section = $derived(row.slot.section)
 
@@ -56,6 +59,7 @@
    * double-click that also renamed would do both at once.
    */
   function startRenaming(): void {
+    if (compact) workspace.endSidebarResize(SIDEBAR_WIDTH.min)
     draft = folder.name
     renaming = true
   }
@@ -151,22 +155,24 @@
      dropped next to. As on SidebarTab, the pseudo-element makes the gap above
      the row part of its drop target rather than the section-end target. -->
 <li
+  style:opacity={covered ? 0 : undefined}
+  data-sidebar-item={folder.id}
   class="group/row relative before:absolute before:inset-x-0 before:-top-0.5 before:h-0.5 {dragging
     ? 'opacity-40'
     : ''}"
-  style:padding-left="calc({row.depth} * var(--sidebar-indent))"
+  style:padding-left="calc({compact || card ? 0 : row.depth} * var(--sidebar-indent))"
   ondragover={onDragOver}
 >
   {#if line?.edge === 'top'}
     <span
       class="pointer-events-none absolute -top-0.5 right-0 h-0.5 drop-line"
-      style:left="calc({line.depth} * var(--sidebar-indent))"
+      style:left="calc({compact || card ? 0 : line.depth} * var(--sidebar-indent))"
     ></span>
   {/if}
 
   <span
     class="pointer-events-none absolute inset-y-0 right-0 drop-zone rounded-lg"
-    style:left="calc({row.depth} * var(--sidebar-indent))"
+    style:left="calc({compact || card ? 0 : row.depth} * var(--sidebar-indent))"
     class:receiving
     aria-hidden="true"
   ></span>
@@ -196,6 +202,7 @@
       type="button"
       draggable="true"
       aria-expanded={row.open}
+      class:icon-only={compact}
       ondragstart={(event) =>
         reorder.startInSidebar(
           event,
@@ -212,10 +219,11 @@
              {holdsActive && !row.open ? 'text-ink-200' : 'text-ink-400 hover:text-ink-200'}"
     >
       <span
+        data-sidebar-icon
         class="{row.open ? 'icon-[ph--folder-open]' : 'icon-[ph--folder]'} shrink-0 text-base"
         aria-hidden="true"
       ></span>
-      <span class="truncate">{folder.name}</span>
+      <span class={compact ? 'sr-only' : 'truncate'}>{folder.name}</span>
       {#if activity}
         <span class="sr-only">{ACTIVITY_LABEL[activity]}</span>
       {/if}
@@ -225,17 +233,21 @@
          mark — the whole row is what opens and closes it — and it gives way to
          the dot of whatever is working inside, the way a close button gives
          way to a tab's, until the pointer comes to the row. -->
-    <span
-      class="pointer-events-none absolute top-1/2 right-2.5 icon-[ph--caret-right] -translate-y-1/2
+    {#if !compact}
+      <span
+        class="sidebar-folder-caret pointer-events-none absolute top-1/2 right-2.5 icon-[ph--caret-right] -translate-y-1/2
              text-xs text-ink-500 transition-transform
              {row.open ? 'rotate-90' : ''}
              {activity ? 'opacity-0 group-hover/row:opacity-100' : ''}"
-      aria-hidden="true"
-    ></span>
+        aria-hidden="true"
+      ></span>
+    {/if}
     {#if activity}
       <span
         class="pointer-events-none absolute top-1/2 right-3 size-2 -translate-y-1/2 rounded-full
-               group-hover/row:opacity-0 {ACTIVITY_DOT[activity]}"
+               {compact
+          ? 'translate-x-1 -translate-y-3!'
+          : 'group-hover/row:opacity-0'} {ACTIVITY_DOT[activity]}"
         aria-hidden="true"
       ></span>
     {/if}
@@ -244,9 +256,16 @@
   {#if line?.edge === 'bottom'}
     <span
       class="pointer-events-none absolute right-0 -bottom-0.5 h-0.5 drop-line"
-      style:left="calc({line.depth} * var(--sidebar-indent))"
+      style:left="calc({compact || card ? 0 : line.depth} * var(--sidebar-indent))"
     ></span>
   {:else if last && reorder.landsAtEnd(section)}
     <span class="pointer-events-none absolute inset-x-0 -bottom-0.5 h-0.5 drop-line"></span>
   {/if}
 </li>
+
+<style>
+  .icon-only {
+    justify-content: center;
+    padding-inline: 0;
+  }
+</style>

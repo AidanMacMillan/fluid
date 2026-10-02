@@ -456,14 +456,25 @@ class Reorder {
     return item
   }
 
-  /** A drag from the native peek panel can land on the host's tasks or panes. */
-  acceptSidebarDrag(item: SidebarItemRef | null, section: SidebarSection): void {
-    if (!item) {
-      this.end()
-      return
-    }
+  /** The native panel forwards this with its item so the host can resolve reorders. */
+  get sidebarOrigin(): SidebarSlot | null {
+    return this.origin
+  }
+
+  /** A native panel drag can land in the sidebar as well as on tasks or panes. */
+  acceptSidebarDrag(
+    item: SidebarItemRef | null,
+    section: SidebarSection,
+    origin: SidebarSlot | null
+  ): void {
+    this.end()
+    if (!item || !origin) return
     this.carrying = item
     this.kind = section
+    this.origin = origin
+    this.into = ['tab', 'pinned-tab']
+    this.offered = this.into
+    this.dimmed = item.id
     this.tab = item.kind === 'tab' ? item.id : null
   }
 

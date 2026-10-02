@@ -3,8 +3,13 @@
   import ResizeHandle from './ResizeHandle.svelte'
   import Sidebar from './Sidebar.svelte'
   import { reorder } from '../lib/reorder.svelte'
+  import { sidebarRows } from '../lib/sidebar-rows'
   import { titleBarHeight } from '../../../shared/appearance'
-  import { SIDEBAR_OPEN_MS, SIDEBAR_CLOSE_MS } from '../../../shared/sidebar-panel'
+  import {
+    SIDEBAR_OPEN_MS,
+    SIDEBAR_CLOSE_MS,
+    type SidebarHover
+  } from '../../../shared/sidebar-panel'
 
   const { density }: { density: number } = $props()
 
@@ -48,6 +53,50 @@
   const right = $derived(workspace.sidebarPosition === 'right')
   const collapsed = $derived(workspace.sidebarCollapsed)
   const open = $derived(!collapsed)
+  // The mounted dock keeps its row layout while sliding in or out. Visibility
+  // controls interaction, not whether its icons acquire labels mid-animation.
+  const compact = $derived(workspace.sidebarWidth === SIDEBAR_WIDTH.icons)
+  const railActive = $derived(open && compact)
+  let hover = $state<SidebarHover | null>(null)
+  let sourceHovered = false
+  const visibleRows = $derived([
+    ...sidebarRows(workspace.sidebar.pinned, 'pinned-tab', workspace.onScreenTabIds),
+    ...sidebarRows(workspace.sidebar.loose, 'tab', workspace.onScreenTabIds)
+  ])
+  const card = $derived(
+    railActive &&
+      !workspace.sidebarResizing &&
+      hover &&
+      visibleRows.some((row) => row.id === hover.id)
+      ? hover
+      : null
+  )
+
+  function hoverItem(item: SidebarHover | null): void {
+    // Keep a native drag's source mounted in place; passing another icon must
+    // not replace its card or cover the row that should receive the drop.
+    if (reorder.kind !== null) return
+    sourceHovered = item !== null
+    if (item) hover = item
+    else hideCard()
+  }
+
+  function hideCard(): void {
+    if (!sourceHovered && !panelHovered && !panelDragging) hover = null
+  }
+
+  // Cards belong to a particular layout and task; never leave one at an old row position.
+  $effect(() => {
+    void workspace.activeTaskId
+    void workspace.sidebarPosition
+    void workspace.sidebarResizing
+    void compact
+    void open
+    void density
+    hover = null
+    panelHovered = false
+    sourceHovered = false
+  })
 
   /**
    * What the dock is animating towards. The width lives here rather than on the
@@ -155,9 +204,14 @@
         activeTaskId: workspace.activeTaskId,
         pages: workspace.pages,
         downloads: workspace.downloads,
-        sidebarWidth: workspace.sidebarWidth,
+        sidebarWidth:
+          collapsed && workspace.sidebarWidth === SIDEBAR_WIDTH.icons
+            ? SIDEBAR_WIDTH.default
+            : workspace.sidebarWidth,
+        railWidth: railActive ? workspace.sidebarWidth : undefined,
+        hover: card,
         sidebarPosition: workspace.sidebarPosition,
-        open: collapsed && workspace.sidebarPeeking,
+        open: (collapsed && workspace.sidebarPeeking) || card !== null,
         collapsed,
         density,
         top: titleBarHeight(density)
@@ -167,7 +221,13 @@
 
   $effect(() =>
     window.api.sidebar.onPanelReport((report) => {
-      if (report.kind === 'hover') {
+      if (railActive && report.kind === 'hover') {
+        panelHovered = report.inside
+        if (report.inside) {
+          // The overlay now owns the pointer, including the original icon's area.
+          sourceHovered = false
+        } else hideCard()
+      } else if (report.kind === 'hover') {
         panelHovered = report.inside
         if (report.inside) keepOpen()
         else hideImmediately()
@@ -179,11 +239,15 @@
       } else if (report.kind === 'drag') {
         const wasDragging = panelDragging
         panelDragging = report.item !== null
-        reorder.acceptSidebarDrag(report.item, report.section)
-        if (wasDragging && !panelDragging && !panelHovered) hideImmediately()
+        reorder.acceptSidebarDrag(report.item, report.section, report.origin)
+        if (wasDragging && !panelDragging && !panelHovered) {
+          if (railActive) hideCard()
+          else hideImmediately()
+        }
       } else {
         panelHovered = false
         workspace.sidebarPeeking = false
+        hover = null
       }
     })
   )
@@ -192,6 +256,13 @@
     clearTimeout(timer)
   })
 </script>
+
+<svelte:window
+  onresize={() => (hover = null)}
+  onkeydown={(event) => {
+    if (event.key === 'Escape') hover = null
+  }}
+/>
 
 <!-- The dock carries the sidebar and the pointer target both, so moving from
      one to the other crosses no gap and the peek survives the trip. Collapsed,
@@ -225,7 +296,12 @@
       style:width="{workspace.sidebarWidth}px"
       inert={!open}
     >
-      <Sidebar />
+      <Sidebar
+        {compact}
+        coveredId={card?.id}
+        onhover={hoverItem}
+        ondismiss={() => (hover = null)}
+      />
     </div>
   </div>
 
@@ -256,7 +332,8 @@
       class="absolute inset-y-0 z-10 w-2 {right ? '-left-1' : '-right-1'}"
       factor={right ? -1 : 1}
       width={workspace.sidebarWidth}
-      min={SIDEBAR_WIDTH.min}
+      min={SIDEBAR_WIDTH.icons}
+      snapMin={SIDEBAR_WIDTH.min}
       max={SIDEBAR_WIDTH.max}
       onresize={(width) => workspace.resizeSidebar(width)}
       oncommit={(width) => workspace.endSidebarResize(width)}

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { taskIcon } from '@fluid/sdk'
+  import type { SidebarHover } from '../../../shared/sidebar-panel'
   import { filesFrom, hasLeft, isFileDrag } from '../lib/file-drop'
   import { reorder, type SidebarSection } from '../lib/reorder.svelte'
   import { moveInSidebar, sidebarRows } from '../lib/sidebar-rows'
@@ -10,6 +11,40 @@
   import SidebarFolder from './SidebarFolder.svelte'
   import SidebarTab from './SidebarTab.svelte'
   import TaskFacts from './TaskFacts.svelte'
+
+  const {
+    compact = false,
+    coveredId = null,
+    onhover,
+    ondismiss
+  }: {
+    compact?: boolean
+    coveredId?: string | null
+    onhover?: (item: SidebarHover | null) => void
+    ondismiss?: () => void
+  } = $props()
+
+  function hoverItem(event: PointerEvent | FocusEvent): void {
+    if (!compact) return
+    const item = (event.target as HTMLElement).closest<HTMLElement>('[data-sidebar-item]')
+    if (!item) {
+      onhover?.(null)
+      return
+    }
+    const rect = item.getBoundingClientRect()
+    const icon = item.querySelector('[data-sidebar-icon]')?.getBoundingClientRect()
+    if (!icon) return
+    onhover?.({
+      id: item.dataset.sidebarItem!,
+      left: rect.left,
+      top: rect.top,
+      width: rect.width,
+      height: rect.height,
+      iconInset:
+        workspace.sidebarPosition === 'right' ? rect.right - icon.right : icon.left - rect.left,
+      iconSize: icon.width
+    })
+  }
 
   /** Whether a file dragged in from outside is currently over the list. */
   let receiving = $state(false)
@@ -173,6 +208,11 @@
      fills whatever the dock gives it — the width is the dock's to animate. -->
 <nav
   aria-label="Tabs in this task"
+  class:icon-rail={compact}
+  onpointerover={hoverItem}
+  onpointerleave={() => compact && onhover?.(null)}
+  onfocusin={hoverItem}
+  onfocusout={() => compact && onhover?.(null)}
   class="browser-chrome flex h-full w-full flex-col gap-1 py-2 pr-1 pl-2 select-none"
 >
   <!-- The head of the sidebar: what kind of work this is, and then which work.
@@ -190,26 +230,27 @@
   <!-- Above the pinned tabs, so a right-click on it is a right-click in the
        pinned section: the one way to make a pinned folder in a task that has
        nothing pinned yet, where the section itself is only a seam. -->
-  <div
-    class="flex flex-col gap-0.5 pt-1.5 pr-2 pb-1 pl-2"
-    role="presentation"
-    oncontextmenu={(event) => void openSectionMenu(event, true)}
-  >
-    {#if type}
-      <!-- Brighter than the name below it: the name answers which piece of work
+  {#if !compact}
+    <div
+      class="flex flex-col gap-0.5 pt-1.5 pr-2 pb-1 pl-2"
+      role="presentation"
+      oncontextmenu={(event) => void openSectionMenu(event, true)}
+    >
+      {#if type}
+        <!-- Brighter than the name below it: the name answers which piece of work
            this is, and this answers what the work is, which is what decides
            whether any of it is happening now.
 
            The glyph is the task's own icon, in its own colour — the one its tab
            wears (see TaskTab) — and decorative here: the words beside it are the
            label, and a screen reader that read both would say it twice. -->
-      <div class="flex items-center gap-1 text-[0.6875rem] leading-4 font-semibold text-ink-300">
-        <span class="{activeIcon.className} shrink-0 text-xs {activeIconColor}" aria-hidden="true"
-        ></span>
-        <span class="truncate">{type.label}</span>
-      </div>
-    {/if}
-    <!-- Wrapped rather than truncated, over as many lines as the name takes.
+        <div class="flex items-center gap-1 text-[0.6875rem] leading-4 font-semibold text-ink-300">
+          <span class="{activeIcon.className} shrink-0 text-xs {activeIconColor}" aria-hidden="true"
+          ></span>
+          <span class="truncate">{type.label}</span>
+        </div>
+      {/if}
+      <!-- Wrapped rather than truncated, over as many lines as the name takes.
          `wrap-anywhere` because a task named after a Shortcut story can carry
          an unbroken run of slug or URL, which would otherwise reach past the
          sidebar's edge with nowhere to break.
@@ -217,17 +258,18 @@
          An untyped task wears its glyph here instead, since there is no type
          line above for it to sit on — held to the first line of a name that
          wraps, the way a list bullet is, rather than centred on the block. -->
-    <div class="flex items-start gap-1">
-      {#if workspace.activeTask && !type}
-        <span class="flex h-4 shrink-0 items-center" aria-hidden="true">
-          <span class="{activeIcon.className} text-xs {activeIconColor}"></span>
-        </span>
-      {/if}
-      <span class="min-w-0 text-[0.6875rem] leading-4 font-semibold wrap-anywhere text-ink-500"
-        >{workspace.activeTask ? (workspace.activeTask.title ?? NEW_TASK_TITLE) : 'Tabs'}</span
-      >
+      <div class="flex items-start gap-1">
+        {#if workspace.activeTask && !type}
+          <span class="flex h-4 shrink-0 items-center" aria-hidden="true">
+            <span class="{activeIcon.className} text-xs {activeIconColor}"></span>
+          </span>
+        {/if}
+        <span class="min-w-0 text-[0.6875rem] leading-4 font-semibold wrap-anywhere text-ink-500"
+          >{workspace.activeTask ? (workspace.activeTask.title ?? NEW_TASK_TITLE) : 'Tabs'}</span
+        >
+      </div>
     </div>
-  </div>
+  {/if}
 
   <!-- Two lists, one column: the tabs the task is *for* above, and whatever was
        opened along the way below. They scroll together, because they are one
@@ -237,6 +279,8 @@
     role="presentation"
     class="relative flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain drop-zone"
     class:receiving
+    onscroll={() => compact && ondismiss?.()}
+    ondragstart={() => compact && ondismiss?.()}
     ondragover={onDragOver}
     ondragleave={onDragLeave}
     ondrop={onDrop}
@@ -247,7 +291,7 @@
          rather than pinned over the top of it — a sidebar is one column, and a
          task with a dozen loose tabs should be able to push all of this off the
          top the way any other list scrolls. -->
-    {#if activeTaskId !== null && (facts.length > 0 || (actions?.actions.length ?? 0) > 0)}
+    {#if !compact && activeTaskId !== null && (facts.length > 0 || (actions?.actions.length ?? 0) > 0)}
       <TaskFacts
         {facts}
         actions={actions?.actions ?? []}
@@ -269,9 +313,19 @@
       >
         {#each pinnedRows as row, index (row.id)}
           {#if row.kind === 'folder'}
-            <SidebarFolder {row} last={index === pinnedRows.length - 1} />
+            <SidebarFolder
+              covered={compact && coveredId === row.id}
+              {compact}
+              {row}
+              last={index === pinnedRows.length - 1}
+            />
           {:else}
-            <SidebarTab {row} last={index === pinnedRows.length - 1} />
+            <SidebarTab
+              covered={compact && coveredId === row.id}
+              {compact}
+              {row}
+              last={index === pinnedRows.length - 1}
+            />
           {/if}
         {/each}
       </ul>
@@ -328,12 +382,14 @@
       <li class="relative" ondragover={onNewTabDragOver}>
         <button
           type="button"
+          aria-label="New tab"
+          class:icon-only={compact}
           onclick={() => window.api.launcher.open()}
           class="flex h-9 w-full items-center gap-2 rounded-lg glass-control py-1 pr-7 pl-2
                  text-xs text-ink-500 hover:text-ink-200"
         >
           <span class="icon-[ph--plus] shrink-0 text-base" aria-hidden="true"></span>
-          <span class="truncate">New tab</span>
+          <span class={compact ? 'sr-only' : 'truncate'}>New tab</span>
         </button>
         {#if looseRows.length === 0 && reorder.landsAtEnd('tab')}
           <span class="pointer-events-none absolute inset-x-0 -bottom-0.5 h-0.5 drop-line"></span>
@@ -342,13 +398,23 @@
 
       {#each looseRows as row, index (row.id)}
         {#if row.kind === 'folder'}
-          <SidebarFolder {row} last={index === looseRows.length - 1} />
+          <SidebarFolder
+            covered={compact && coveredId === row.id}
+            {compact}
+            {row}
+            last={index === looseRows.length - 1}
+          />
         {:else}
-          <SidebarTab {row} last={index === looseRows.length - 1} />
+          <SidebarTab
+            covered={compact && coveredId === row.id}
+            {compact}
+            {row}
+            last={index === looseRows.length - 1}
+          />
         {/if}
       {/each}
 
-      {#if receiving && workspace.tabs.length === 0}
+      {#if !compact && receiving && workspace.tabs.length === 0}
         <li class="px-2 py-1.5 text-xs text-ink-500">Drop to add a file tab.</li>
       {/if}
     </ul>
@@ -369,7 +435,7 @@
        first thing its own panel says. Squares the width of their own glyphs,
        centred in the column rather than stretched across it — nothing about the
        row below the tabs is a list row. -->
-  <div class="flex shrink-0 items-center justify-center gap-1">
+  <div class="flex shrink-0 items-center justify-center gap-1" class:flex-col={compact}>
     <button
       type="button"
       onclick={() => window.api.clipboardWindow.open()}
@@ -393,3 +459,13 @@
     </button>
   </div>
 </nav>
+
+<style>
+  .icon-rail {
+    padding-inline: 6px;
+  }
+  .icon-only {
+    justify-content: center;
+    padding-inline: 0;
+  }
+</style>

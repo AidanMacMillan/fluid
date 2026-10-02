@@ -8,6 +8,17 @@ export const SIDEBAR_CLOSE_MS = 200
 export const SIDEBAR_PANEL_BLEED = 12
 export const SIDEBAR_PANEL_INSET = 6
 
+/** The source row and icon in viewport pixels, for an overlay that expands in place. */
+export type SidebarHover = {
+  id: string
+  left: number
+  top: number
+  width: number
+  height: number
+  iconInset: number
+  iconSize: number
+}
+
 /** Data only: the host owns selection and live page state in both renderers. */
 export type SidebarPanelState = {
   projects: ProjectRow[]
@@ -28,6 +39,8 @@ export type SidebarPanelState = {
     }
   >
   sidebarWidth: number
+  railWidth?: number
+  hover?: SidebarHover | null
   sidebarPosition: SidebarPosition
   open: boolean
   density: number
@@ -42,5 +55,10 @@ export type SidebarPanelReport =
       kind: 'drag'
       item: { kind: 'tab' | 'folder'; id: string } | null
       section: 'tab' | 'pinned-tab'
+      origin: {
+        section: 'tab' | 'pinned-tab'
+        parentId: string | null
+        index: number
+      } | null
     }
   | { kind: 'close' }

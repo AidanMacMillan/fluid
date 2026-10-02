@@ -1,6 +1,10 @@
 <script lang="ts">
   import { tick } from 'svelte'
   import Sidebar from './components/Sidebar.svelte'
+  import SidebarTab from './components/SidebarTab.svelte'
+  import SidebarFolder from './components/SidebarFolder.svelte'
+  import { sidebarRows } from './lib/sidebar-rows'
+  import type { SidebarHover } from '../../shared/sidebar-panel'
   import ResizeHandle from './components/ResizeHandle.svelte'
   import { SIDEBAR_WIDTH, workspace } from './lib/workspace.svelte'
   import { extensions, provideWindowActions } from './lib/extensions.svelte'
@@ -15,6 +19,15 @@
   let open = $state(false)
   let density = $state(1)
   let generation = 0
+  let hover = $state<SidebarHover | null>(null)
+  const row = $derived(
+    hover
+      ? [
+          ...sidebarRows(workspace.sidebar.pinned, 'pinned-tab', workspace.onScreenTabIds),
+          ...sidebarRows(workspace.sidebar.loose, 'tab', workspace.onScreenTabIds)
+        ].find((item) => item.id === hover.id)
+      : undefined
+  )
   const right = $derived(workspace.sidebarPosition === 'right')
 
   extensions.start()
@@ -41,8 +54,9 @@
         sidebarPosition: state.sidebarPosition
       })
       density = state.density
+      hover = state.hover ?? null
       // Let the initial offscreen position paint before the first reveal.
-      if (show && !open) {
+      if (show && !open && !hover) {
         await tick()
         requestAnimationFrame(() =>
           requestAnimationFrame(() => {
@@ -64,7 +78,8 @@
               kind: workspace.folders.some((folder) => folder.id === id) ? 'folder' : 'tab',
               id
             },
-      section: reorder.kind === 'pinned-tab' ? 'pinned-tab' : 'tab'
+      section: reorder.kind === 'pinned-tab' ? 'pinned-tab' : 'tab',
+      origin: $state.snapshot(reorder.sidebarOrigin)
     })
   })
 
@@ -86,34 +101,94 @@
   onmouseenter={() => window.api.sidebar.reportPanel({ kind: 'hover', inside: true })}
   onmouseleave={() => window.api.sidebar.reportPanel({ kind: 'hover', inside: false })}
 >
-  <div
-    class="sidebar-panel absolute text-ink-100 text-on-glass"
-    class:right
-    class:open
-    style:width="{workspace.sidebarWidth}px"
-    style:--chrome-density={density}
-    style:--panel-bleed="{SIDEBAR_PANEL_BLEED}px"
-    style:--panel-inset="{SIDEBAR_PANEL_INSET}px"
-    style:--panel-duration="{open ? SIDEBAR_OPEN_MS : SIDEBAR_CLOSE_MS}ms"
-    inert={!open}
-  >
-    <div class="sidebar-background h-full overflow-hidden rounded-xl glass-popover">
-      <Sidebar />
+  {#if hover}
+    <div
+      class="browser-chrome absolute inset-0 p-[6px] text-ink-100 text-on-glass"
+      style:--chrome-density={density}
+      inert={!open}
+    >
+      <ul
+        class="sidebar-hover-card sidebar-background rounded-lg glass-popover shadow-lg"
+        class:right
+        style:--sidebar-card-icon-inset="{hover.iconInset}px"
+        style:--sidebar-card-icon-size="{hover.iconSize}px"
+        style:--sidebar-card-anchor-width="{hover.width}px"
+        aria-label="Sidebar item"
+      >
+        {#if row?.kind === 'tab'}
+          <SidebarTab {row} last={false} card />
+        {:else if row?.kind === 'folder'}
+          <SidebarFolder {row} last={false} card />
+        {/if}
+      </ul>
     </div>
-    <ResizeHandle
-      label="Resize sidebar"
-      class="absolute inset-y-3 z-10 w-2 {right ? '-left-1' : '-right-1'}"
-      factor={right ? -1 : 1}
-      width={workspace.sidebarWidth}
-      min={SIDEBAR_WIDTH.min}
-      max={SIDEBAR_WIDTH.max}
-      onresize={(width) => resize(width, false)}
-      oncommit={(width) => resize(width, true)}
-    />
-  </div>
+  {:else}
+    <div
+      class="sidebar-panel absolute text-ink-100 text-on-glass"
+      class:right
+      class:open
+      style:width="{workspace.sidebarWidth}px"
+      style:--chrome-density={density}
+      style:--panel-bleed="{SIDEBAR_PANEL_BLEED}px"
+      style:--panel-inset="{SIDEBAR_PANEL_INSET}px"
+      style:--panel-duration="{open ? SIDEBAR_OPEN_MS : SIDEBAR_CLOSE_MS}ms"
+      inert={!open}
+    >
+      <div class="sidebar-background h-full overflow-hidden rounded-xl glass-popover">
+        <Sidebar />
+      </div>
+      <ResizeHandle
+        label="Resize sidebar"
+        class="absolute inset-y-3 z-10 w-2 {right ? '-left-1' : '-right-1'}"
+        factor={right ? -1 : 1}
+        width={workspace.sidebarWidth}
+        min={SIDEBAR_WIDTH.min}
+        max={SIDEBAR_WIDTH.max}
+        onresize={(width) => resize(width, false)}
+        oncommit={(width) => resize(width, true)}
+      />
+    </div>
+  {/if}
 </div>
 
 <style>
+  .sidebar-hover-card {
+    --sidebar-card-audio-left: calc(
+      var(--sidebar-card-icon-inset) + var(--sidebar-card-icon-size) + 1.5 * var(--spacing)
+    );
+    --sidebar-card-audio-right: auto;
+  }
+  .sidebar-hover-card :global(li > button:first-of-type) {
+    padding-left: var(--sidebar-card-icon-inset);
+  }
+  .sidebar-hover-card :global([data-sidebar-icon]) {
+    width: var(--sidebar-card-icon-size);
+    height: var(--sidebar-card-icon-size);
+  }
+  .sidebar-hover-card.right {
+    --sidebar-card-audio-left: auto;
+    --sidebar-card-audio-right: calc(
+      var(--sidebar-card-icon-inset) + var(--sidebar-card-icon-size) + 1.5 * var(--spacing)
+    );
+  }
+  .sidebar-hover-card.right :global(li > button:first-of-type) {
+    flex-direction: row-reverse;
+    padding-left: calc(7 * var(--spacing));
+    padding-right: var(--sidebar-card-icon-inset);
+  }
+  .sidebar-hover-card.right :global(.sidebar-close) {
+    right: auto;
+    left: calc(1.5 * var(--spacing));
+  }
+  .sidebar-hover-card.right :global(.sidebar-folder-caret) {
+    right: auto;
+    left: calc(2.5 * var(--spacing));
+  }
+  .sidebar-hover-card.right :global(.sidebar-profile) {
+    left: auto;
+    right: calc(var(--sidebar-card-anchor-width) - var(--spacing));
+  }
+
   .sidebar-background {
     /* Match the docked tint while retaining the overlay's glass treatment. */
     --theme-popover: oklch(from var(--theme-scrim) l c h / var(--theme-popover-opacity));

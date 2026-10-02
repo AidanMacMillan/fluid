@@ -49,6 +49,8 @@ import {
   type SplitEdge
 } from './splits'
 import { originOf } from './urls'
+import { SIDEBAR_WIDTH, clampSidebarWidth } from '../../../shared/sidebar-width'
+export { SIDEBAR_WIDTH } from '../../../shared/sidebar-width'
 
 export { NEW_TASK_TITLE }
 
@@ -70,19 +72,6 @@ const SIDEBAR_COLLAPSED_KEY = 'sidebar.collapsed'
 
 /** Settings row backing `Workspace.sidebarWidth`. */
 const SIDEBAR_WIDTH_KEY = 'sidebar.width'
-
-/**
- * The sidebar's width, in CSS pixels, and the range the resize handle holds it
- * to. Pixels rather than a fraction of the window: what the sidebar has to fit
- * is a column of fixed-height rows with a label on each, and that does not grow
- * because the window did. The floor keeps a tab's title readable; the ceiling
- * keeps the sidebar from taking the window over.
- */
-export const SIDEBAR_WIDTH = { default: 224, min: 168, max: 420 } as const
-
-function clampSidebarWidth(width: number): number {
-  return Math.round(Math.min(SIDEBAR_WIDTH.max, Math.max(SIDEBAR_WIDTH.min, width)))
-}
 
 /**
  * The whole app's state: the task strip across the top, the tab list of
@@ -327,13 +316,13 @@ class Workspace {
    */
   resizeSidebar(width: number): void {
     this.sidebarResizing = true
-    this.sidebarWidth = clampSidebarWidth(width)
+    this.sidebarWidth = clampSidebarWidth(width, !this.sidebarCollapsed)
   }
 
   /** The width to keep, once the drag ends. */
   endSidebarResize(width: number): void {
     this.sidebarResizing = false
-    this.sidebarWidth = clampSidebarWidth(width)
+    this.sidebarWidth = clampSidebarWidth(width, !this.sidebarCollapsed)
     void fluid.settings.set({ key: SIDEBAR_WIDTH_KEY, value: this.sidebarWidth })
   }
 

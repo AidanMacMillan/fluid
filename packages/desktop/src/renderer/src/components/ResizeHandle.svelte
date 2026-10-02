@@ -10,6 +10,8 @@
     width: number
     min: number
     max: number
+    /** Skip the unusable gap with arrow keys as well as pointer drags. */
+    snapMin?: number
     label: string
     /**
      * How much width one pixel of pointer buys, and which way round.
@@ -39,6 +41,7 @@
     width,
     min,
     max,
+    snapMin,
     label,
     factor = 1,
     class: className = '',
@@ -149,7 +152,9 @@
     // One press is one step of width whichever edge this is, so only the sign
     // of the factor is taken: the size of it is about pointer travel, and a
     // key press has none.
-    oncommit(clamp(width + step * Math.sign(factor)))
+    const direction = step * Math.sign(factor)
+    const next = width + direction
+    oncommit(clamp(snapMin && next < snapMin ? (direction > 0 ? snapMin : min) : next))
   }
 </script>
 
