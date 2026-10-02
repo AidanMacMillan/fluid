@@ -1,7 +1,13 @@
 import { isWebAddress, type HistoryEntry, type Tab, type TabTypeContribution } from '@fluid/sdk'
+import { z } from 'zod'
 import { isEphemeralProfile } from './profiles'
 import { getTab } from './db/tabs'
-import { insertHistory, updateHistory, type NewHistoryEntry } from './db/history'
+import {
+  insertHistory,
+  updateHistory,
+  updateSessionHistory,
+  type NewHistoryEntry
+} from './db/history'
 import { changed, historyWork } from './api/history'
 import { subscribe } from './api/bus'
 import { tabType } from './api/contributions'
@@ -13,6 +19,13 @@ export function describeVisit(tab: Tab, contribution?: TabTypeContribution): New
     return typeof value === 'string' && value.length > 0 ? value : null
   }
   const file = tab.type === 'file' ? tab.payload : null
+  const selected = Object.fromEntries(
+    (contribution?.history?.payload ?? [])
+      .filter((key) => (tab.payload as Record<string, unknown>)[key] !== undefined)
+      .map((key) => [key, (tab.payload as Record<string, unknown>)[key]])
+  )
+  const parsed = z.record(z.string(), z.json()).safeParse(selected)
+  const saved = parsed.success && JSON.stringify(parsed.data).length <= 65536 ? parsed.data : {}
   return {
     taskId: tab.taskId,
     tabId: tab.id,
@@ -29,7 +42,9 @@ export function describeVisit(tab: Tab, contribution?: TabTypeContribution): New
           size: file.size,
           ...(file.thumbnail ? { thumbnail: file.thumbnail } : {})
         }
-      : {}
+      : Object.keys(saved).length
+        ? { payload: saved }
+        : {}
   }
 }
 
@@ -98,13 +113,17 @@ export function registerHistoryCapture(): void {
     if (event.type === 'tab.updated' && event.tab.type !== 'browser') {
       const tab = event.tab
       capture(async () => {
+        const description = describeVisit(tab, tabType(tab.type))
+        if (tab.title && (await updateSessionHistory(description))) changed(tab.taskId)
         const entry = recent.get(tab.id)
         if (!entry || entry.taskId !== tab.taskId) return
-        const description = describeVisit(tab, tabType(tab.type))
         // A tab switching to a different session/location must not rewrite a past visit.
         const newTarget =
           (entry.sessionId && entry.sessionId !== description.sessionId) ||
-          entry.location !== description.location
+          entry.location !== description.location ||
+          (entry.metadata.payload &&
+            JSON.stringify(entry.metadata.payload) !==
+              JSON.stringify(description.metadata?.payload))
         if (newTarget) {
           if (activeTabId === tab.id) {
             recent.set(tab.id, await insertHistory(description))
@@ -114,9 +133,15 @@ export function registerHistoryCapture(): void {
         }
         const changes = {
           title: description.title,
-          sessionId: description.sessionId ?? null
+          sessionId: description.sessionId ?? null,
+          metadata: description.metadata ?? {}
         }
-        if (entry.title === changes.title && entry.sessionId === changes.sessionId) return
+        if (
+          entry.title === changes.title &&
+          entry.sessionId === changes.sessionId &&
+          JSON.stringify(entry.metadata) === JSON.stringify(changes.metadata)
+        )
+          return
         await updateHistory(entry.id, entry.taskId, changes)
         recent.set(tab.id, { ...entry, ...changes })
         changed(tab.taskId)

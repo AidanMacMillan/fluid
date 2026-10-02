@@ -55,14 +55,34 @@ are copied, not its whole payload:
 ctx.tabTypes.register({
   id: 'session',
   label: 'My tool',
-  history: { location: 'cwd', sessionId: 'sessionId' }
+  history: {
+    location: 'cwd',
+    sessionId: 'sessionId',
+    restore: (entry) =>
+      entry.location && entry.sessionId ? { cwd: entry.location, sessionId: entry.sessionId } : null
+  }
 })
 ```
 
 Both fields are optional. `location` can name a working directory, folder, URL or
 other readable address. When a session ID arrives through `tabs.update`, the latest
 visit is enriched without another visit being added. Changing an already-known
-session or location while its tab is selected records a new visit.
+session or location while its tab is selected records a new visit. Later session
+names update matching visits in that task, including across app restarts.
+
+`restore` is optional. Return the payload needed to reopen this tab type, or `null`
+when the saved visit does not contain enough information. Fluid checks for an
+existing tab with those payload fields in the original task before opening a new
+one. Keep the callback read-only, fast, and free of network requests: it runs when
+listing history as well as when opening a visit. A callback error makes that entry
+unavailable without breaking the rest of history. The callback works for bundled
+and sandboxed extensions.
+
+For additional identifiers, declare `history.payload: ['channelId', 'threadTs']`.
+Only those fields are copied into `entry.metadata.payload` as JSON (up to 64 KB).
+Never retain commands, prompts, drafts, or the entire tab payload. Changing these
+identifiers while selected records another visit. Handle older entries without
+these fields; existing `location` and `sessionId` references can still be used.
 
 For other events, record entries explicitly from the main extension or a view's API:
 
@@ -82,12 +102,22 @@ The host assigns the entry ID, timestamp and extension attribution. Metadata mus
 JSON and fit within 64 KB. Use `history.list({ taskId, query, limit, offset })` for
 newest-first search and pagination (default 100, maximum 200 per page),
 `history.delete({ taskId, id })`, or `history.clear({ taskId })`. Subscribe to
-`history.changed` or use `api.watch('history.list', { taskId }, listener)`.
+`history.changed` or use `api.watch('history.list', { taskId }, listener)`. Listed
+entries include `canOpen` and, when unavailable, `unavailableReason`.
 
-The task history panel opens from the sidebar's clock button, Cmd+Y on macOS, or Ctrl+H on other platforms. Browser
-entries reopen the recorded URL with its browsing profile. Other entries return to
-their tab while it remains in the task; after closure they retain readable visit
-references, without restarting terminals or recreating agent sessions.
+The task history panel opens from the sidebar's clock button, Cmd+Y on macOS, or
+Ctrl+H on other platforms. Browser entries reopen the recorded URL with its browsing
+profile. Files can be imported again when their original local path still exists.
+Extension entries reuse their matching live tab or use the registered `restore`
+callback. Codex and Claude Code resume saved sessions; VS Code reopens folders;
+terminals start a fresh shell in the saved directory without replaying commands;
+Slack reopens saved threads. Session data must still exist in the provider's store.
+
+Host callers can use `history.open({ taskId, id })` to resolve or recreate a tab,
+then `ui.reveal({ taskId, tabId: tab.id })` to show it. Opening rechecks the entry
+and current tabs; it never accepts a recovery payload from the caller. Sandboxed
+extensions cannot call `history.open`, because recovery may import a local file or
+invoke another extension; their own `restore` hooks remain available to the host.
 
 ## Add an interface
 

@@ -103,6 +103,8 @@ export function mayOpenOutside(url: string): boolean {
 
 /** Methods no installed extension may call at all. */
 const REFUSED = new Set([
+  // Recovery can import files or invoke another extension's tab type.
+  'history.open',
   'files.import',
   'settings.get',
   'settings.set',

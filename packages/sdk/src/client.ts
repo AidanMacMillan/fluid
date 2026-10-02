@@ -68,8 +68,11 @@ const WATCHES = {
   'tasks.get': (event, input) =>
     event.type.startsWith('task.') && taskIdsOf(event).includes((input as { id: string }).id),
   'history.list': (event, input) =>
-    (event.type === 'history.changed' || event.type === 'task.deleted') &&
-    taskIdsOf(event).includes((input as { taskId: string }).taskId),
+    event.type === 'extensions.changed' ||
+    ((event.type === 'history.changed' ||
+      event.type === 'task.deleted' ||
+      event.type.startsWith('tab.')) &&
+      taskIdsOf(event).includes((input as { taskId: string }).taskId)),
   'notes.list': (event, input) =>
     event.type.startsWith('note.') &&
     taskIdsOf(event).includes((input as { taskId: string }).taskId),

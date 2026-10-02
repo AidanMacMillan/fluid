@@ -253,7 +253,12 @@ const registrationSchema = z.discriminatedUnion('kind', [
           ])
           .optional(),
         history: z
-          .object({ location: z.string().min(1), sessionId: z.string().min(1) })
+          .object({
+            location: z.string().min(1),
+            sessionId: z.string().min(1),
+            payload: z.array(z.string().min(1)).max(100),
+            hasRestore: z.boolean()
+          })
           .partial()
           .optional(),
         hasPinnedUrl: z.boolean(),
@@ -794,7 +799,22 @@ class Bridge {
           id: type.id,
           label: type.label,
           agentDescription: type.agentDescription,
-          history: type.history,
+          history: type.history
+            ? {
+                location: type.history.location,
+                sessionId: type.history.sessionId,
+                payload: type.history.payload,
+                restore: type.history.hasRestore
+                  ? async (entry) => {
+                      const result = await page.call<unknown>(
+                        { type: 'tabType.restoreHistory', registration: id, entry },
+                        TIMEOUTS.callback
+                      )
+                      return z.record(z.string(), z.json()).nullable().parse(result)
+                    }
+                  : undefined
+              }
+            : undefined,
           payload,
           view,
           pinnedUrl: type.hasPinnedUrl

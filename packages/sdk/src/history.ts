@@ -17,10 +17,25 @@ export type HistoryEntry = {
   visitedAt: Date
   /** Remembered site icon for this visit's origin, even after its tab has closed. */
   favicon?: string
+  /** Computed by history.list; recovery is checked again by history.open. */
+  canOpen?: boolean
+  unavailableReason?: string
 }
 
-/** Payload field names to include with automatic visits to this tab type. */
+/** References to retain for this tab type, and how to restore a saved visit. */
 export type TabHistoryFields = {
   location?: string
   sessionId?: string
+  /** Explicitly retained payload fields, stored in metadata.payload. Never include prompts or commands. */
+  payload?: string[]
+  /**
+   * Build a payload for this tab type from a saved visit, or null if it cannot
+   * be restored. Called when listing and opening history: keep this read-only,
+   * fast, and free of network requests. Only return fields needed to identify
+   * the destination; Fluid also uses these to find an already open tab.
+   * Existing history may predate this declaration and lack metadata.payload.
+   */
+  restore?: (
+    entry: HistoryEntry
+  ) => Record<string, unknown> | null | Promise<Record<string, unknown> | null>
 }

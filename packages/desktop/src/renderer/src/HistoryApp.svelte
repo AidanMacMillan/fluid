@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { isWebAddress, keepSelectionInView, type HistoryEntry, type Tab } from '@fluid/sdk'
+  import { keepSelectionInView, type HistoryEntry, type Tab } from '@fluid/sdk'
   import type { HistoryContext } from '../../main/history-window'
   import { fluid } from './lib/api'
   import { extensions } from './lib/extensions.svelte'
@@ -48,11 +48,15 @@
     const stop = fluid.on('history.changed', (event) => {
       if (event.taskId === context?.taskId) revision++
     })
+    const stopTabs = fluid.onAny((event) => {
+      if (event.type.startsWith('tab.') || event.type === 'extensions.changed') revision++
+    })
     const timer = setInterval(() => {
       now = Date.now()
     }, 30_000)
     return () => {
       stop()
+      stopTabs()
       clearInterval(timer)
     }
   })
@@ -119,32 +123,14 @@
   })
 
   function canOpen(entry: HistoryEntry): boolean {
-    return (
-      (entry.type === 'browser' && !!entry.location && isWebAddress(entry.location)) ||
-      !!(entry.tabId && tabsById.has(entry.tabId))
-    )
+    return entry.canOpen === true
   }
   async function open(entry?: HistoryEntry): Promise<void> {
     if (!entry || !canOpen(entry) || busy) return
     busy = true
     error = ''
     try {
-      let tab = entry.tabId ? await fluid.tabs.get({ id: entry.tabId }) : null
-      if (tab?.taskId !== entry.taskId) tab = null
-      if (entry.type === 'browser' && entry.location && isWebAddress(entry.location)) {
-        if (!tab || tab.type !== 'browser' || tab.payload.url !== entry.location) {
-          tab = await fluid.tabs.open({
-            taskId: entry.taskId,
-            tab: {
-              type: 'browser',
-              title: entry.title,
-              payload: { url: entry.location },
-              profile: typeof entry.metadata.profile === 'number' ? entry.metadata.profile : null
-            }
-          })
-        }
-      }
-      if (!tab) throw new Error('This tab has closed. Its visit details are still saved here.')
+      const tab = await fluid.history.open({ taskId: entry.taskId, id: entry.id })
       await fluid.ui.reveal({ taskId: entry.taskId, tabId: tab.id })
       window.api.historyWindow.close()
     } catch (reason) {
@@ -303,7 +289,9 @@
                 <button
                   onclick={() => open(entry)}
                   disabled={!canOpen(entry) || busy}
-                  title={canOpen(entry) ? entry.title : entry.title + ' — Tab unavailable'}
+                  title={canOpen(entry)
+                    ? entry.title
+                    : entry.title + ' — ' + entry.unavailableReason}
                   class="block max-w-full truncate text-left text-xs font-medium text-ink-100 enabled:cursor-pointer enabled:hover:underline disabled:text-ink-400"
                   >{entry.title}</button
                 >
@@ -311,8 +299,8 @@
                   class="mt-0.5 truncate text-[0.6875rem] text-ink-500 select-text"
                   title={entry.location ?? entry.label}
                 >
-                  {historyLocation(entry)}{!canOpen(entry) && entry.tabId
-                    ? ' · Tab unavailable'
+                  {historyLocation(entry)}{!canOpen(entry)
+                    ? ' · ' + (entry.unavailableReason ?? 'Tab unavailable')
                     : ''}
                 </p>
                 {#if entry.sessionId}<p

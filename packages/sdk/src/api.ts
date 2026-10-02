@@ -234,6 +234,8 @@ export const contract = {
   },
 
   history: {
+    /** Reuse or restore a saved visit's tab in its original task. Does not reveal it. */
+    open: method(z.object({ taskId: id, id })).returns<Tab>(),
     /** Newest first. Search covers titles, types, locations and session IDs. */
     list: method(
       z.object({

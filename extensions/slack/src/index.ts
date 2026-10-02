@@ -85,6 +85,15 @@ export default defineExtension({
     ctx.tabTypes.register({
       id: 'thread',
       label: 'Slack thread',
+      history: {
+        payload: ['channelId', 'threadTs'],
+        restore: (entry) => {
+          const saved = entry.metadata.payload as Record<string, unknown> | undefined
+          return typeof saved?.channelId === 'string' && typeof saved.threadTs === 'string'
+            ? { channelId: saved.channelId, threadTs: saved.threadTs }
+            : null
+        }
+      },
       // Drawn in a view of its own (see ./views). It claims no keys: the
       // composer sends on a plain Enter, which the menu never binds.
       view: {},

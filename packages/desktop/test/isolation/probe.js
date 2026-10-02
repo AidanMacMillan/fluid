@@ -210,6 +210,12 @@ const extension = {
     ctx.tabTypes.register({
       id: 'pane',
       label: 'Pane',
+      history: {
+        location: 'thing',
+        payload: ['thing'],
+        restore: (entry) =>
+          entry.location === 'invalid' ? [] : entry.location ? { thing: entry.location } : null
+      },
       payload: z.object({ thing: z.string() }),
       view: { kind: 'page' },
       menu: () => [
