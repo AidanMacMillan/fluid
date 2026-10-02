@@ -23,7 +23,7 @@
     {#if reason === 'unreadable'}
       This file could not be read.
     {:else}
-      This file type is not supported yet.
+      This file type is not supported.
     {/if}
   </p>
 </div>

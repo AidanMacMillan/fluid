@@ -5,7 +5,7 @@
   "version": "0.1.2",
   "description": "The Fluid desktop app: Electron main process, preload and renderer.",
   "main": "./out/main/index.js",
-  "author": "Fluid",
+  "author": "Aidan MacMillan",
   "scripts": {
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
     "svelte-check": "svelte-check --tsconfig ./tsconfig.web.json",
