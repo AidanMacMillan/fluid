@@ -102,6 +102,12 @@ export type LauncherRow = {
   /** Unique within the extension. */
   id: string
   label: string
+  /**
+   * Whether this entry accepts text containing line breaks. Defaults to false
+   * for existing entries and actions that take no text. Multiline input is
+   * only offered to entries that explicitly opt in.
+   */
+  supportsMultiline?: boolean
   /** The row's second line, which may depend on where the launcher is. */
   detail?: string | ((context: LauncherContext) => string)
   /** An Iconify class. */
@@ -133,7 +139,7 @@ export type LauncherAlternative = {
 }
 
 /**
- * A launcher row that, when taken, asks for one line of input and turns it
+ * A launcher row that, when taken, asks for input and turns it
  * into a tab — a link to a thread, say, which there is no way to guess.
  */
 export type LauncherPromptEntry = TabLauncherRow & {
@@ -215,7 +221,7 @@ export type NewTaskTemplate = {
 }
 
 /**
- * A new-task row that asks for one line of input and turns it into a task — a
+ * A new-task row that asks for input and turns it into a task — a
  * link to the thread the work is about, say. Like a new-tab prompt entry, its
  * `parse` is also tried against whatever is typed or pasted into the main
  * field, so a pasted link is recognised without choosing the row first.

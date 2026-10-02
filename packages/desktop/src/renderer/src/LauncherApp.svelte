@@ -16,7 +16,7 @@
   import { extensions } from './lib/extensions.svelte'
   import type { LauncherAction, LauncherOutcome, LauncherPrompt } from './lib/launcher-actions'
   import { matchesQuery } from './lib/search'
-  import { displayUrl, looksLikeUrl, resolveInput, searchUrl } from './lib/urls'
+  import { displayUrl, isMultiline, looksLikeUrl, resolveInput, searchUrl } from './lib/urls'
 
   /**
    * The panel that opens a new tab: a field to type into, the handful of places
@@ -70,6 +70,7 @@
   type Choice = {
     key: string
     label: string
+    supportsMultiline: boolean
     /** The dimmer half of the row: the address or folder, or empty for nothing to add. */
     detail: string
     icon: RowIcon
@@ -89,6 +90,7 @@
   }
 
   let query = $state('')
+  const multiline = $derived(isMultiline(query))
 
   /**
    * The question the panel is asking, or null while it is the search field it
@@ -204,7 +206,7 @@
 
   const asking = $derived.by(() => {
     const found = prompting.find((candidate) => candidate.key === prompt)
-    return found ? { label: found.row.label, icon: found.row.icon, ...found.prompt } : null
+    return found ? { ...found.row, ...found.prompt } : null
   })
 
   /**
@@ -231,7 +233,7 @@
    * a catalogue's addresses tend to share everything but an id.
    */
   const matches = $derived(
-    mode === 'task'
+    mode === 'task' || multiline
       ? []
       : bookmarks.filter((bookmark) =>
           bookmark.searchOnly
@@ -266,6 +268,7 @@
    */
   const actions = $derived(
     entries
+      .filter(({ row }) => !multiline || row.supportsMultiline === true)
       .filter(({ prompt }) => mode !== 'task' || prompt === null)
       .filter(({ row }) =>
         matchesQuery(query, [row.label, launcherDetail(row, context), ...(row.keywords ?? [])])
@@ -273,6 +276,7 @@
       .map(({ row, key, prompt }): LauncherAction => ({
         id: key,
         label: row.label,
+        supportsMultiline: row.supportsMultiline === true,
         detail: launcherDetail(row, context),
         icon: row.icon,
         outcome: prompt ? { kind: 'prompt', prompt: key } : { kind: 'extension-action', entry: key }
@@ -287,11 +291,12 @@
    * first row becomes a search.
    */
   const blank = $derived.by<Choice | null>(() => {
-    if (mode !== 'task') return null
+    if (mode !== 'task' || multiline) return null
     const text = query.trim()
     return text === ''
       ? {
           key: 'blank',
+          supportsMultiline: false,
           label: 'Blank task',
           detail: '',
           icon: { kind: 'glyph', className: 'icon-[ph--plus]' },
@@ -300,6 +305,7 @@
         }
       : {
           key: 'named',
+          supportsMultiline: false,
           label: text,
           detail: '',
           icon: { kind: 'glyph', className: 'icon-[ph--pencil-simple-line]' },
@@ -355,14 +361,17 @@
   const forTyped = $derived.by<Choice[]>(() => {
     const text = query.trim()
     if (text === '') return []
-    return typedEntries.map(({ key, row }) => ({
-      key: `typed:${key}`,
-      label: text,
-      detail: row.label,
-      icon: { kind: 'glyph', className: row.icon },
-      section: 'go',
-      outcome: { kind: 'typed', entry: key, text }
-    }))
+    return typedEntries
+      .filter(({ row }) => !multiline || row.supportsMultiline === true)
+      .map(({ key, row }) => ({
+        key: `typed:${key}`,
+        supportsMultiline: row.supportsMultiline === true,
+        label: text,
+        detail: row.label,
+        icon: { kind: 'glyph', className: row.icon },
+        section: 'go',
+        outcome: { kind: 'typed', entry: key, text }
+      }))
   })
 
   /**
@@ -384,23 +393,26 @@
     // user in front of a sign-in wall for somewhere they are already signed in.
     const recognised: Choice[] = []
     for (const { row, key, parse } of prompting) {
+      if (multiline && row.supportsMultiline !== true) continue
       const value = parse(text)
       if (value === null) continue
       recognised.push({
         key,
+        supportsMultiline: row.supportsMultiline === true,
         label: row.label,
         detail: launcherDetail(row, context),
         icon: { kind: 'glyph', className: row.icon },
         section: 'go',
         outcome: { kind: 'extension', prompt: key, value }
       })
-      // The new-tab panel has one answer for a link, and it is this one.
-      if (mode === 'tab') return recognised
+      // A recognised single-line link has one answer. Multiline text can
+      // still be searched even when an extension recognises it.
+      if (mode === 'tab' && !multiline) return recognised
     }
 
-    if (mode === 'task') {
+    if (mode === 'task' && !multiline) {
       // Anything else typed is a name, which the first row already offers (see
-      // `blank`). A task has nothing to search for.
+      // `blank`). Multiline text instead offers a task open on a search.
       if (!looksLikeUrl(text)) return recognised
       const url = resolveInput(text)
       if (!url) return recognised
@@ -408,6 +420,7 @@
         ...recognised,
         {
           key: 'page',
+          supportsMultiline: false,
           label: displayUrl(url),
           detail: 'Web page',
           icon: { kind: 'glyph', className: 'icon-[ph--arrow-square-out]' },
@@ -426,12 +439,13 @@
       ]
     }
 
-    if (looksLikeUrl(text)) {
+    if (!multiline && looksLikeUrl(text)) {
       const url = resolveInput(text)
       if (!url) return []
       return [
         {
           key: 'open',
+          supportsMultiline: false,
           label: displayUrl(url),
           detail: '',
           icon: { kind: 'glyph', className: 'icon-[ph--arrow-square-out]' },
@@ -442,13 +456,27 @@
     }
 
     return [
+      ...recognised,
       {
         key: 'search',
+        supportsMultiline: true,
         label: text,
         detail: 'Search Google',
         icon: { kind: 'glyph', className: 'icon-[ph--magnifying-glass]' },
         section: 'go',
-        outcome: { kind: 'choice', choice: { kind: 'url', url: searchUrl(text), profile } }
+        outcome: {
+          kind: 'choice',
+          choice:
+            mode === 'task'
+              ? {
+                  kind: 'task',
+                  task: {
+                    title: text.split(/[\r\n]/)[0],
+                    tabs: [{ type: 'browser', title: null, payload: { url: searchUrl(text) } }]
+                  }
+                }
+              : { kind: 'url', url: searchUrl(text), profile }
+        }
       }
     ]
   })
@@ -463,13 +491,14 @@
    */
   const answered = $derived.by<Choice | null>(() => {
     const found = prompting.find((candidate) => candidate.key === prompt)
-    if (!found) return null
+    if (!found || (multiline && found.row.supportsMultiline !== true)) return null
 
     const value = found.parse(query.trim())
     if (value === null) return null
 
     return {
       key: found.key,
+      supportsMultiline: found.row.supportsMultiline === true,
       label: `${mode === 'task' ? 'Start' : 'Open'} ${found.row.label.toLowerCase()}`,
       detail: launcherDetail(found.row, context),
       icon: { kind: 'glyph', className: found.row.icon },
@@ -512,7 +541,11 @@
    * ordinary search always has a row to offer, even if it is only a search.
    */
   const guidance = $derived(
-    asking === null || answered !== null || query.trim() === '' ? null : asking.rejection
+    asking === null || answered !== null || query.trim() === ''
+      ? null
+      : multiline && asking.supportsMultiline !== true
+        ? 'This option only supports single-line text. Go back to use a search or agent prompt.'
+        : asking.rejection
   )
 
   function bookmarkChoice(bookmark: Bookmark): Choice {
@@ -522,6 +555,7 @@
     const catalogue = bookmark.searchOnly === true
     return {
       key: `bookmark:${bookmark.id}`,
+      supportsMultiline: false,
       label: bookmark.label,
       detail: catalogue ? (bookmark.group ?? '') : displayUrl(bookmark.url),
       icon: bookmark.icon
@@ -535,6 +569,7 @@
   function actionChoice(action: LauncherAction): Choice {
     return {
       key: `action:${action.id}`,
+      supportsMultiline: action.supportsMultiline,
       label: action.label,
       detail: action.detail,
       icon: { kind: 'glyph', className: action.icon },
@@ -549,10 +584,18 @@
    * that was clicked to get there — and focus on an element that goes away
    * lands on the document, where a paste reaches nothing at all.
    */
-  let field = $state<HTMLInputElement | null>(null)
+  let field = $state<HTMLTextAreaElement | null>(null)
+
+  $effect(() => {
+    // Re-measure after typing, pasting, or returning from an extension prompt.
+    void query
+    if (!field) return
+    field.style.height = 'auto'
+    field.style.height = `${Math.min(field.scrollHeight, 160)}px`
+  })
 
   /** Focus the field the moment the panel appears: it is what the panel is for. */
-  function autofocus(node: HTMLInputElement): void {
+  function autofocus(node: HTMLTextAreaElement): void {
     node.focus()
   }
 
@@ -685,6 +728,14 @@
    * the hand does anyway after clearing a bad paste.
    */
   function onKeydown(event: KeyboardEvent): void {
+    if (event.isComposing) return
+    // Shift+Enter belongs to the textarea, including when there are no choices.
+    if (event.key === 'Enter') {
+      if (event.shiftKey) return
+      event.preventDefault()
+      open(choices[selected])
+      return
+    }
     if (prompt !== null && event.key === 'Backspace' && query === '') {
       event.preventDefault()
       back()
@@ -693,15 +744,16 @@
 
     if (choices.length === 0) return
 
+    // Keep ordinary arrows for editing multiline text. Option/Alt+arrows
+    // still move through the launcher's results without leaving the field.
+    if (multiline && event.target === field && !event.altKey) return
+
     if (event.key === 'ArrowDown') {
       event.preventDefault()
       selected = (selected + 1) % choices.length
     } else if (event.key === 'ArrowUp') {
       event.preventDefault()
       selected = (selected - 1 + choices.length) % choices.length
-    } else if (event.key === 'Enter') {
-      event.preventDefault()
-      open(choices[selected])
     }
   }
 
@@ -742,11 +794,11 @@
 <!-- No background of its own: the window's vibrancy material, under the tint
      its body is laid with (`body[data-panel]` in main.css), is what the panel is
      made of, and anything opaque here would cover it. -->
-<div bind:this={panel} class="flex flex-col text-ink-100 select-none text-on-glass">
+<div bind:this={panel} class="flex max-h-[520px] flex-col text-ink-100 select-none text-on-glass">
   <!-- The field, and the whole of the panel while nothing is typed. The border
        is the only line in the panel: it is the seam between what you are saying
        and what the panel is offering back. -->
-  <div class="flex items-center gap-2.5 border-b border-white/10 px-4 py-3.5">
+  <div class="flex shrink-0 items-start gap-2.5 border-b border-white/10 px-4 py-3.5">
     {#if asking}
       <!-- The way back, and the chip that says the field is no longer the
            search field. Both are needed: the chip alone would leave somebody
@@ -776,7 +828,7 @@
         aria-hidden="true"
       ></span>
     {/if}
-    <input
+    <textarea
       use:autofocus
       bind:this={field}
       bind:value={query}
@@ -784,11 +836,12 @@
       spellcheck="false"
       autocomplete="off"
       autocapitalize="off"
+      rows="1"
       aria-label={asking?.placeholder ?? fieldLabel}
       placeholder={asking?.placeholder ?? fieldLabel}
-      class="w-full cursor-text bg-transparent text-sm text-ink-50 outline-none
+      class="w-full min-w-0 cursor-text resize-none overflow-y-auto bg-transparent text-sm text-ink-50 outline-none
              placeholder:text-ink-500"
-    />
+    ></textarea>
   </div>
 
   <!-- Scrolls rather than growing without end: the window caps the panel's
@@ -807,7 +860,7 @@
     <ul
       use:keepSelectionInView
       aria-label={mode === 'task' ? 'New task' : incognito ? 'Open in incognito' : 'Open'}
-      class="flex max-h-96 flex-col gap-0.5 overflow-y-auto p-1.5"
+      class="flex max-h-96 min-h-0 flex-col gap-0.5 overflow-y-auto p-1.5"
     >
       {#each choices as choice, index (choice.key)}
         <!-- The seam between one band of the panel and the next, and the whole of
@@ -858,7 +911,8 @@
             {/if}
             <span class="min-w-0 flex-1 truncate text-xs text-ink-100">{choice.label}</span>
             {#if choice.detail}
-              <span class="shrink-0 truncate text-[0.6875rem] text-ink-500">{choice.detail}</span>
+              <span class="max-w-[40%] truncate text-[0.6875rem] text-ink-500">{choice.detail}</span
+              >
             {/if}
           </button>
         </li>

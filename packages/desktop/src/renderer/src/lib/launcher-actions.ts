@@ -48,6 +48,7 @@ export type LauncherAction = {
   /** Stable, and what a stored ordering would name later. */
   id: string
   label: string
+  supportsMultiline: boolean
   /** The dimmer half of the row: what choosing it will do. */
   detail: string
   /** An Iconify class — see `@iconify/tailwind4` in src/renderer/src/assets/main.css. */

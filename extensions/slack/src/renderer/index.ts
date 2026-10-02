@@ -84,6 +84,7 @@ export default defineRendererExtension<Component<never>>({
   launcher: [
     {
       id: 'thread',
+      supportsMultiline: false,
       label: 'Slack thread',
       icon: 'icon-[logos--slack-icon]',
       // A pasted link opens a thread without this row ever being touched, which
@@ -100,6 +101,7 @@ export default defineRendererExtension<Component<never>>({
   newTask: [
     {
       id: 'thread',
+      supportsMultiline: false,
       label: 'Slack thread',
       icon: 'icon-[logos--slack-icon]',
       keywords: ['message', 'conversation', 'reply', 'dm', 'channel', 'discussion'],

@@ -24,8 +24,14 @@ const LOOPBACK = /^(localhost|127(?:\.\d{1,3}){3})(:\d+)?([/?#]|$)/i
 /** Where anything that is not an address goes. Same engine as `DEFAULT_BROWSER_URL`. */
 const SEARCH_URL = 'https://www.google.com/search?q='
 
+/** Check before trimming: even a trailing line break makes this free text. */
+export function isMultiline(input: string): boolean {
+  return /[\r\n]/.test(input)
+}
+
 /** Whether `input` names somewhere in particular, rather than something to look up. */
 export function looksLikeUrl(input: string): boolean {
+  if (isMultiline(input)) return false
   const text = input.trim()
   return ABSOLUTE_URL.test(text) || BARE_HOST.test(text)
 }
@@ -43,6 +49,7 @@ export function searchUrl(query: string): string {
 export function resolveInput(input: string): string | null {
   const text = input.trim()
   if (text === '') return null
+  if (isMultiline(input)) return searchUrl(text)
   if (ABSOLUTE_URL.test(text)) return text
   // https for the web, http for a dev server: `localhost:5173` over TLS is a
   // failed handshake, and it is the one address this app is typed at daily.

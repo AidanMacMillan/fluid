@@ -34,6 +34,7 @@ export default defineRendererExtension({
   launcher: [
     {
       id: 'shell',
+      supportsMultiline: false,
       label: 'Terminal',
       icon: ICON,
       // The names people reach for when they want a shell, including the two
@@ -55,6 +56,7 @@ export default defineRendererExtension({
     },
     {
       id: 'run',
+      supportsMultiline: false,
       label: 'Run in terminal',
       icon: ICON,
       // Whatever was typed, as a command for a new shell in the same place the

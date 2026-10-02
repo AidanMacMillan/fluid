@@ -154,6 +154,14 @@ For a new workspace extension:
    [RENDERERS](../desktop/src/renderer/src/lib/extensions.svelte.ts).
    See [renderer.ts](src/renderer.ts) for those interfaces.
 
+Launcher and new-task rows can opt into multiline input with
+`supportsMultiline: true`. Omitting the field defaults to `false`, so existing
+renderer entries keep their single-line behavior without changes. Use `true`
+for entries that accept a full prompt; single-line links, commands, and actions
+that take no text can omit it or set it to `false`. Multiline input is also
+available as a web search. Shift+Enter inserts a line break, Enter submits, and
+Alt+Up/Down selects results while ordinary arrows edit multiline text.
+
 Package-specific development notes:
 [Claude Code](../../extensions/claude-code/README.md) ·
 [Terminal](../../extensions/terminal/README.md) ·
