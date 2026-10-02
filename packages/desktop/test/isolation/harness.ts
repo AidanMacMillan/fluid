@@ -193,6 +193,7 @@ async function main(): Promise<void> {
     }
   }
   check('policy refuses files.import', await refused('files.import', { path: '/etc/hosts' }))
+  check('policy refuses history.open', await refused('history.open', { taskId: 't', id: 'h' }))
   check(
     'policy refuses settings.set',
     await refused('settings.set', { key: 'extensions.slack.enabled', value: false })
@@ -493,11 +494,31 @@ async function main(): Promise<void> {
   check('task action runs in the page', storage.get('ran') === 'Fix it', storage.get('ran'))
 
   const tabType = registered.tabTypes[0] as {
+    history: {
+      payload: string[]
+      restore: (entry: { location: string | null }) => Promise<Record<string, unknown> | null>
+    }
     payload: { safeParse: (v: unknown) => { success: boolean } }
     menu: (tab: unknown) => Promise<{ label?: string; click?: () => Promise<void> }[]>
   }
   check('payload schema rebuilt: accepts', tabType.payload.safeParse({ thing: 'x' }).success)
   check('payload schema rebuilt: refuses', !tabType.payload.safeParse({ thing: 1 }).success)
+  check('history fields cross isolation', tabType.history.payload[0] === 'thing')
+  check(
+    'history recovery runs in the page',
+    (await tabType.history.restore({ location: 'saved' }))?.thing === 'saved'
+  )
+  check(
+    'history can decline recovery',
+    (await tabType.history.restore({ location: null })) === null
+  )
+  let invalidRecoveryRejected = false
+  try {
+    await tabType.history.restore({ location: 'invalid' })
+  } catch {
+    invalidRecoveryRejected = true
+  }
+  check('invalid recovery payload is rejected', invalidRecoveryRejected)
   const menu = await tabType.menu({ id: 'tab1' })
   await menu[0].click!()
   check('menu click runs in the page', storage.get('poked') === true)

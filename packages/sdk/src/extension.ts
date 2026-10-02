@@ -133,7 +133,7 @@ export type TaskActionIcon = { emoji: string } | { image: string }
  * window by its renderer entry otherwise.
  */
 export type TabTypeContribution = {
-  /** Include these payload fields in automatic task history visits. Other payload fields are not copied. */
+  /** Capture references for task history and optionally restore closed tabs from them. */
   history?: TabHistoryFields
   /** Unique within the extension; the tab's type is `extensionId.id`. */
   id: string

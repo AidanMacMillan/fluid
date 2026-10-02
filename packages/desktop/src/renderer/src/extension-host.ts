@@ -293,7 +293,14 @@ function contextFor(context: ActivateContext): ExtensionContext {
                       focusOnShow: view.focusOnShow,
                       drawsBar: view.drawsBar
                     },
-              history: type.history,
+              history: type.history
+                ? {
+                    location: type.history.location,
+                    sessionId: type.history.sessionId,
+                    payload: type.history.payload,
+                    hasRestore: type.history.restore !== undefined
+                  }
+                : undefined,
               hasPinnedUrl: type.pinnedUrl !== undefined,
               hasMenu: type.menu !== undefined,
               hasOnStop: type.onStop !== undefined,
@@ -464,6 +471,12 @@ async function answer(call: HostCall): Promise<unknown> {
       return action.run()
     }
 
+    case 'tabType.restoreHistory':
+      return (
+        (await contribution<TabTypeContribution>(call.registration).history?.restore?.(
+          call.entry
+        )) ?? null
+      )
     case 'tabType.pinnedUrl':
       return (
         (await contribution<TabTypeContribution>(call.registration).pinnedUrl?.(call.tab)) ?? null

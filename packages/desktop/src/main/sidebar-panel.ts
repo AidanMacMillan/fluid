@@ -8,6 +8,7 @@ import {
   SIDEBAR_PANEL_INSET,
   type SidebarPanelState
 } from '../shared/sidebar-panel'
+import { SIDEBAR_WIDTH } from '../shared/sidebar-width'
 
 let view: WebContentsView | undefined
 let loaded: Promise<void> | undefined
@@ -62,6 +63,21 @@ export function suppressSidebarPanel(value: boolean): void {
 function position(): void {
   if (!view || !host || host.isDestroyed() || !state) return
   const { width, height } = host.getContentBounds()
+  if (state.hover && state.railWidth !== undefined) {
+    const cardWidth = Math.min(SIDEBAR_WIDTH.default + 12, width)
+    const sourceEdge =
+      state.sidebarPosition === 'right'
+        ? state.hover.left + state.hover.width + 6 - cardWidth
+        : state.hover.left - 6
+    const cardHeight = Math.min(height, Math.ceil(state.hover.height + 12))
+    view.setBounds({
+      x: Math.round(Math.max(0, Math.min(width - cardWidth, sourceEdge))),
+      y: Math.round(Math.max(0, Math.min(height - cardHeight, state.hover.top - 6))),
+      width: Math.round(cardWidth),
+      height: cardHeight
+    })
+    return
+  }
   const panelWidth = Math.min(width, state.sidebarWidth + SIDEBAR_PANEL_INSET + SIDEBAR_PANEL_BLEED)
   view.setBounds({
     x: state.sidebarPosition === 'right' ? width - panelWidth : 0,
@@ -85,7 +101,7 @@ export function updateSidebarPanel(window: BrowserWindow, next: SidebarPanelStat
   const wasOpen = state?.open ?? false
   state = next
   // Preload while collapsed, before the first edge entry.
-  if (!view && !next.collapsed) return
+  if (!view && !next.collapsed && next.railWidth === undefined) return
   const panel = ensureView()
   if (next.open) {
     clearTimeout(closing)

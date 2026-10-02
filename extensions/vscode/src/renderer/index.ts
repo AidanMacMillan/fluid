@@ -56,6 +56,7 @@ export default defineRendererExtension({
   launcher: [
     {
       id: 'editor',
+      supportsMultiline: false,
       label: 'VS Code',
       icon: ICON,
       // The project's own folder when there is one, the way a new terminal and

@@ -5,6 +5,8 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { after, before, test } from 'node:test'
 import { randomUUID } from 'node:crypto'
+import { mkdtemp, writeFile, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import ts from 'typescript'
 import { PGlite } from '@electric-sql/pglite'
 import { drizzle } from 'drizzle-orm/pglite'
@@ -21,6 +23,25 @@ function loader() {
   const client = resolve(root, 'src/main/db/client.ts')
   function load(path) {
     if (path === client) return { db: () => database }
+    // Keep real tab validation and persistence, without Electron's notifications.
+    if (path === resolve(root, 'src/main/api/tasks.ts'))
+      return {
+        announcingTaskChanges: async (_ids, work, announce) => {
+          const result = await work()
+          announce(result)
+          return result
+        }
+      }
+    if (path === resolve(root, 'src/main/api/files.ts'))
+      return {
+        importPath: async (path) => ({
+          storageKey: randomUUID(),
+          sourcePath: path,
+          fileName: 'report.txt',
+          mimeType: 'text/plain',
+          size: 4
+        })
+      }
     if (cache.has(path)) return cache.get(path).exports
     const mod = { exports: {} }
     cache.set(path, mod)
@@ -40,6 +61,291 @@ function loader() {
   }
   return (path) => load(resolve(root, path))
 }
+
+// Register the actual shared agent definition used by both shipped providers.
+function registerAgent(h, provider) {
+  const noop = () => undefined
+  const { createAgentExtension } = h.load('../agent-core/src/main/extension.ts')
+  const extension = createAgentExtension(
+    { id: provider, name: provider, attachmentScheme: provider },
+    () => ({ methods: {}, stop: noop, connect: noop, dispose: noop }),
+    {
+      setAttachmentsRoot: noop,
+      pruneAttachments: async () => {},
+      ATTACHMENT_SCHEME_PRIVILEGES: { scheme: provider },
+      serveAttachment: noop
+    }
+  )
+  extension.activate({
+    dataDir: '/unused',
+    api: {},
+    onDispose: noop,
+    tabTypes: { register: (type) => h.contributions.registerTabType(provider, type) },
+    views: { onConnect: noop },
+    protocols: { handle: noop },
+    rpc: { handle: noop }
+  })
+}
+
+test('closed Codex and Claude sessions recover from legacy history and reuse matching sessions', async () => {
+  const h = await setup()
+  for (const provider of ['codex', 'claude-code']) {
+    registerAgent(h, provider)
+    const id = await h.addTab(`${provider}.session`, {
+      cwd: '/project',
+      sessionId: provider + '-1'
+    })
+    h.capture.visitTab(id)
+    await h.flush()
+    const entry = (await h.store.listHistory(h.taskId)).find((e) => e.tabId === id)
+    await postgres.query('DELETE FROM tabs WHERE id = $1', [id])
+    const args = { taskId: h.taskId, id: entry.id }
+    const [first, second] = await Promise.all([h.api.open(args), h.api.open(args)])
+    assert.equal(first.id, second.id, 'concurrent opens create one tab')
+    assert.notEqual(first.id, id)
+    assert.deepEqual(first.payload, { cwd: '/project', sessionId: provider + '-1' })
+    assert.equal(first.taskId, h.taskId)
+    assert.equal(
+      (await h.api.list({ taskId: h.taskId })).find((e) => e.id === entry.id).canOpen,
+      true
+    )
+    await assert.rejects(h.api.open({ ...args, taskId: h.otherTask }), /history entry/i)
+  }
+})
+
+test('session recovery never reuses a tab that changed session, folder, or task', async () => {
+  const h = await setup()
+  registerAgent(h, 'codex')
+  const id = await h.addTab('codex.session', { cwd: '/project', sessionId: 'original' })
+  h.capture.visitTab(id)
+  await h.flush()
+  const [entry] = await h.store.listHistory(h.taskId)
+  await postgres.query('UPDATE tabs SET payload = $1 WHERE id = $2', [
+    JSON.stringify({ cwd: '/project', sessionId: 'different' }),
+    id
+  ])
+  const restored = await h.api.open({ taskId: h.taskId, id: entry.id })
+  assert.notEqual(restored.id, id)
+  await postgres.query('UPDATE tabs SET task_id = $1 WHERE id = $2', [h.otherTask, restored.id])
+  const again = await h.api.open({ taskId: h.taskId, id: entry.id })
+  assert.notEqual(again.id, restored.id)
+  assert.equal(again.taskId, h.taskId)
+})
+
+test('missing session IDs, disabled extensions, and failed recovery remain informative', async () => {
+  const h = await setup()
+  registerAgent(h, 'codex')
+  const id = await h.addTab('codex.session', { cwd: '/project' })
+  h.capture.visitTab(id)
+  await h.flush()
+  const [entry] = await h.store.listHistory(h.taskId)
+  assert.equal((await h.api.open({ taskId: h.taskId, id: entry.id })).id, id)
+  await postgres.query('DELETE FROM tabs WHERE id = $1', [id])
+  assert.equal((await h.api.list({ taskId: h.taskId }))[0].unavailableReason, 'Session not saved')
+  await assert.rejects(h.api.open({ taskId: h.taskId, id: entry.id }), /Session not saved/)
+  const registration = h.contributions.registerTabType('example', {
+    id: 'item',
+    label: 'Example',
+    history: {
+      restore: () => {
+        throw new Error('broken')
+      }
+    }
+  })
+  const broken = await h.store.insertHistory({
+    taskId: h.taskId,
+    type: 'example.item',
+    label: 'Example',
+    title: 'Item'
+  })
+  assert.equal(
+    (await h.api.list({ taskId: h.taskId })).find((e) => e.id === broken.id).unavailableReason,
+    'Could not restore this visit'
+  )
+  registration.dispose()
+  await assert.rejects(h.api.open({ taskId: h.taskId, id: broken.id }), /Extension unavailable/)
+})
+
+test('later session names update all matching visits and repair persisted history after restart', async () => {
+  const h = await setup()
+  registerAgent(h, 'codex')
+  const id = await h.addTab('codex.session', { cwd: '/project', sessionId: 'saved' })
+  const other = await h.addTab('file', { fileName: 'other' })
+  h.capture.visitTab(id)
+  h.capture.visitTab(other)
+  h.capture.visitTab(id)
+  await h.flush()
+  const tab = await h.getTab(id)
+  h.bus.emit({ type: 'tab.updated', tab: { ...tab, title: 'Named conversation' } })
+  await h.flush()
+  assert.deepEqual(
+    (await h.store.listHistory(h.taskId)).filter((e) => e.tabId === id).map((e) => e.title),
+    ['Named conversation', 'Named conversation']
+  )
+  // A fresh capture instance has no in-memory recent visits.
+  const restarted = loader()
+  registerAgent(
+    { load: restarted, contributions: restarted('src/main/api/contributions.ts') },
+    'codex'
+  )
+  const capture = restarted('src/main/history-capture.ts')
+  capture.registerHistoryCapture()
+  restarted('src/main/api/bus.ts').emit({
+    type: 'tab.updated',
+    tab: { ...tab, title: 'After restart' }
+  })
+  await restarted('src/main/api/history.ts').historyWork(async () => {})
+  assert.equal(
+    (await h.store.listHistory(h.taskId)).find((e) => e.tabId === id).title,
+    'After restart'
+  )
+  await postgres.query('UPDATE tabs SET title = $1 WHERE id = $2', ['Current saved name', id])
+  const results = await h.api.list({ taskId: h.taskId, query: 'Current saved name' })
+  assert.equal(results.length, 2, 'search uses repaired titles too')
+  await h.api.remove(h.taskId)
+  h.bus.emit({ type: 'tab.updated', tab: { ...tab, title: 'Late name' } })
+  await h.flush()
+  assert.equal((await h.store.listHistory(h.taskId)).length, 0)
+})
+
+test('declared recovery fields persist without commands and distinguish changed destinations', async () => {
+  const h = await setup()
+  h.contributions.registerTabType('sample', {
+    id: 'thread',
+    label: 'Thread',
+    history: {
+      payload: ['channelId', 'threadTs'],
+      restore: (entry) => entry.metadata.payload ?? null
+    }
+  })
+  const id = await h.addTab('sample.thread', {
+    channelId: 'c1',
+    threadTs: '1',
+    prompt: 'private',
+    command: 'secret'
+  })
+  h.capture.visitTab(id)
+  await h.flush()
+  const [entry] = await h.store.listHistory(h.taskId)
+  assert.deepEqual(entry.metadata, { payload: { channelId: 'c1', threadTs: '1' } })
+  const tab = await h.getTab(id)
+  h.bus.emit({ type: 'tab.updated', tab: { ...tab, payload: { channelId: 'c1', threadTs: '2' } } })
+  await h.flush()
+  assert.equal((await h.store.listHistory(h.taskId)).length, 2)
+  await postgres.query('DELETE FROM tabs WHERE id = $1', [id])
+  const restored = await h.api.open({ taskId: h.taskId, id: entry.id })
+  assert.deepEqual(restored.payload, { channelId: 'c1', threadTs: '1' })
+})
+
+test('browser recovery preserves URL and profile and reuses the recovered destination', async () => {
+  const h = await setup()
+  const id = await h.addTab('browser', { url: 'https://example.com/old' }, 2)
+  h.capture.visitPage(id, 'https://example.com/old', 'Old page')
+  await h.flush()
+  const [entry] = await h.store.listHistory(h.taskId)
+  await postgres.query('UPDATE tabs SET payload = $1 WHERE id = $2', [
+    JSON.stringify({ url: 'https://example.com/new' }),
+    id
+  ])
+  await h.addTab('browser', { url: entry.location }, 3)
+  const restored = await h.api.open({ taskId: h.taskId, id: entry.id })
+  assert.notEqual(restored.id, id)
+  assert.equal(restored.profile, 2)
+  assert.equal(restored.payload.url, entry.location)
+  assert.equal((await h.api.open({ taskId: h.taskId, id: entry.id })).id, restored.id)
+})
+
+test('file recovery checks the original path and reuses the imported tab', async () => {
+  const h = await setup()
+  const dir = await mkdtemp(resolve(tmpdir(), 'fluid-history-'))
+  try {
+    const path = resolve(dir, 'report.txt')
+    await writeFile(path, 'test')
+    const entry = await h.store.insertHistory({
+      taskId: h.taskId,
+      type: 'file',
+      label: 'File',
+      title: 'Report',
+      location: path
+    })
+    const restored = await h.api.open({ taskId: h.taskId, id: entry.id })
+    assert.equal(restored.payload.sourcePath, path)
+    assert.equal((await h.api.open({ taskId: h.taskId, id: entry.id })).id, restored.id)
+    await postgres.query('DELETE FROM tabs WHERE id = $1', [restored.id])
+    await rm(path)
+    await assert.rejects(
+      h.api.open({ taskId: h.taskId, id: entry.id }),
+      /Original file no longer available/
+    )
+    assert.equal((await h.api.list({ taskId: h.taskId }))[0].canOpen, false)
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
+test('history recovery cannot bypass installed extension permissions', async () => {
+  const h = await setup()
+  const policy = h.load('src/main/api/isolation-policy.ts')
+  policy.isolate('sample', { extensions: [], hosts: [] })
+  await assert.rejects(
+    policy.checkIsolatedCall('sample', 'history.open', { taskId: h.taskId, id: randomUUID() }),
+    /may not call history.open/
+  )
+})
+
+test('shipped terminal, editor and Slack declarations restore only destination data', async () => {
+  const h = await setup()
+  // Evaluate the actual declaration without starting the extensions' servers or shell processes.
+  function declaration(path) {
+    const source = ts.createSourceFile(
+      path,
+      readFileSync(resolve(root, path), 'utf8'),
+      ts.ScriptTarget.Latest,
+      true
+    )
+    let expression
+    function visit(node) {
+      if (ts.isPropertyAssignment(node) && node.name.getText(source) === 'history')
+        expression = node.initializer.getText(source)
+      ts.forEachChild(node, visit)
+    }
+    visit(source)
+    assert.ok(expression)
+    const code = ts.transpileModule(`module.exports = ${expression}`, {
+      compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
+    }).outputText
+    const mod = { exports: {} }
+    new Function('module', code)(mod)
+    return mod.exports
+  }
+  for (const [provider, type, payload, expected] of [
+    [
+      'terminal',
+      'shell',
+      { cwd: '/project', command: 'do-not-run', run: 'once' },
+      { cwd: '/project' }
+    ],
+    ['vscode', 'editor', { folderPath: '/project' }, { folderPath: '/project' }],
+    [
+      'slack',
+      'thread',
+      { channelId: 'c1', threadTs: '1', focusTs: '2', draft: 'private' },
+      { channelId: 'c1', threadTs: '1' }
+    ]
+  ]) {
+    h.contributions.registerTabType(provider, {
+      id: type,
+      label: provider,
+      history: declaration(`../../extensions/${provider}/src/index.ts`)
+    })
+    const id = await h.addTab(`${provider}.${type}`, payload)
+    h.capture.visitTab(id)
+    await h.flush()
+    const entry = (await h.store.listHistory(h.taskId)).find((e) => e.tabId === id)
+    await postgres.query('DELETE FROM tabs WHERE id = $1', [id])
+    assert.deepEqual((await h.api.open({ taskId: h.taskId, id: entry.id })).payload, expected)
+  }
+})
 
 before(async () => {
   postgres = await PGlite.create()

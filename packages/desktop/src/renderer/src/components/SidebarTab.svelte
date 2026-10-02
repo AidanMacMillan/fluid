@@ -20,9 +20,12 @@
     row: Extract<SidebarRow, { kind: 'tab' }>
     /** Only the last row draws the line for the slot past the end of the section. */
     last: boolean
+    compact?: boolean
+    covered?: boolean
+    card?: boolean
   }
 
-  const { row, last }: Props = $props()
+  const { row, last, compact = false, card = false, covered = false }: Props = $props()
   const tab: Tab = $derived(row.tab)
   const section = $derived(row.slot.section)
 
@@ -176,10 +179,12 @@
      The pseudo-element covers the list's gap above this row, so a drag exactly
      between rows hits this row's top edge instead of the section-end target. -->
 <li
+  style:opacity={covered ? 0 : undefined}
+  data-sidebar-item={tab.id}
   class="group/row relative before:absolute before:inset-x-0 before:-top-0.5 before:h-0.5 {dragging
     ? 'opacity-40'
     : ''}"
-  style:padding-left="calc({row.depth} * var(--sidebar-indent))"
+  style:padding-left="calc({compact || card ? 0 : row.depth} * var(--sidebar-indent))"
   ondragover={onDragOver}
   onpointerenter={() => {
     if (split) workspace.hoveredSplitId = split.id
@@ -191,7 +196,7 @@
   {#if line?.edge === 'top'}
     <span
       class="pointer-events-none absolute -top-0.5 right-0 h-0.5 drop-line"
-      style:left="calc({line.depth} * var(--sidebar-indent))"
+      style:left="calc({compact || card ? 0 : line.depth} * var(--sidebar-indent))"
     ></span>
   {/if}
 
@@ -199,7 +204,8 @@
     type="button"
     aria-current={selected ? 'page' : undefined}
     draggable="true"
-    title={hoverTitle}
+    title={compact ? undefined : hoverTitle}
+    class:icon-only={compact}
     ondragstart={(event) =>
       reorder.startInSidebar(event, section, { kind: 'tab', id: tab.id }, row.slot, SECTIONS)}
     ondragend={() => reorder.end()}
@@ -230,7 +236,9 @@
            `aria-hidden`: the name below carries it in words, where a colour
            says nothing. -->
       <span
-        class="absolute inset-y-1.5 left-0.5 w-0.5 rounded-full {PROFILE_SWATCH[profile.color]}"
+        class="sidebar-profile absolute inset-y-1.5 left-0.5 w-0.5 rounded-full {PROFILE_SWATCH[
+          profile.color
+        ]}"
         aria-hidden="true"
       ></span>
       <span class="sr-only">{profile.name}</span>
@@ -239,9 +247,16 @@
          download fills the tab, a spinner while a page fetches. Both replace the
          tab's own icon rather than sitting beside it, so the row never grows. -->
     {#if download}
-      <span class="icon-[ph--arrow-circle-down] shrink-0 text-base" aria-hidden="true"></span>
+      <span
+        data-sidebar-icon
+        class="icon-[ph--arrow-circle-down] shrink-0 text-base"
+        aria-hidden="true"
+      ></span>
     {:else if loading}
-      <span class="icon-[ph--circle-notch] shrink-0 animate-spin text-base" aria-hidden="true"
+      <span
+        data-sidebar-icon
+        class="icon-[ph--circle-notch] shrink-0 animate-spin text-base"
+        aria-hidden="true"
       ></span>
     {:else if icon}
       <!-- Decorative: the label beside it already names the tab. Not draggable,
@@ -251,6 +266,7 @@
            picture either way, and cropping at least fills the slot the site
            icons beside it fill. -->
       <img
+        data-sidebar-icon
         src={icon}
         alt=""
         draggable="false"
@@ -258,13 +274,13 @@
         class="size-4 shrink-0 {tab.type === 'file' ? 'rounded-xs object-cover' : 'object-contain'}"
       />
     {:else}
-      <span class="{tabGlyph(tab)} shrink-0 text-base" aria-hidden="true"></span>
+      <span data-sidebar-icon class="{tabGlyph(tab)} shrink-0 text-base" aria-hidden="true"></span>
     {/if}
-    {#if showAudio}
+    {#if showAudio && !compact}
       <!-- Reserve the slot for the sibling button; buttons cannot nest. -->
       <span class="size-4 shrink-0" aria-hidden="true"></span>
     {/if}
-    <span class="truncate">{label}</span>
+    <span class={compact ? 'sr-only' : 'truncate'}>{label}</span>
     {#if split}
       <!-- Nothing drawn: a row in a split says so by being lit alongside the
            selected one, or with the rest of its split on hover. Only a screen
@@ -295,7 +311,7 @@
     {/if}
   </button>
 
-  {#if showAudio}
+  {#if showAudio && !compact}
     <button
       type="button"
       title={audioMuted ? 'Unmute tab' : 'Mute tab'}
@@ -303,7 +319,10 @@
       onclick={() => window.api.browser.toggleAudioMuted(tab.id)}
       class="absolute top-1/2 grid size-5 -translate-y-1/2 place-items-center rounded-md
              glass-control text-base text-ink-400 no-drag hover:text-ink-100 focus-visible:text-ink-100"
-      style:left="calc({row.depth} * var(--sidebar-indent) + 7.5 * var(--spacing))"
+      style:left={card
+        ? 'var(--sidebar-card-audio-left)'
+        : `calc(${row.depth} * var(--sidebar-indent) + 7.5 * var(--spacing))`}
+      style:right={card ? 'var(--sidebar-card-audio-right)' : undefined}
     >
       <span
         class={audioMuted ? 'icon-[ph--speaker-slash]' : 'icon-[ph--speaker-high]'}
@@ -317,32 +336,40 @@
        the row goes. Wandered off, the page is the thing worth being rid of and
        the pin is not — so the mark changes to say a smaller thing is about to
        happen, and the row stays, back on the address it is pinned to. -->
-  {#if tab.pinnedUrl !== null && !workspace.onPinnedPage(tab)}
-    <IconButton
-      icon="icon-[ph--minus]"
-      label="Close {label}, keeping it pinned"
-      size="sm"
-      class="peer/close absolute top-1/2 right-1.5 -translate-y-1/2 opacity-0
+  {#if !compact}
+    {#if tab.pinnedUrl !== null && !workspace.onPinnedPage(tab)}
+      <IconButton
+        icon="icon-[ph--minus]"
+        label="Close {label}, keeping it pinned"
+        size="sm"
+        class="sidebar-close peer/close absolute top-1/2 right-1.5 -translate-y-1/2 {card
+          ? 'opacity-100'
+          : 'opacity-0'}
              group-hover/row:opacity-100 focus-visible:opacity-100"
-      onclick={() => void workspace.releasePinnedTab(tab.id)}
-    />
-  {:else}
-    <IconButton
-      icon="icon-[ph--x]"
-      label="Close {label}"
-      size="sm"
-      class="peer/close absolute top-1/2 right-1.5 -translate-y-1/2 opacity-0
+        onclick={() => void workspace.releasePinnedTab(tab.id)}
+      />
+    {:else}
+      <IconButton
+        icon="icon-[ph--x]"
+        label="Close {label}"
+        size="sm"
+        class="sidebar-close peer/close absolute top-1/2 right-1.5 -translate-y-1/2 {card
+          ? 'opacity-100'
+          : 'opacity-0'}
              group-hover/row:opacity-100 focus-visible:opacity-100"
-      onclick={() => void workspace.closeTab(tab.id)}
-    />
+        onclick={() => void workspace.closeTab(tab.id)}
+      />
+    {/if}
   {/if}
 
   <!-- In the close button's slot, after it so that it can give way to it: the
        button only shows on hover or keyboard focus, and then has the slot. -->
-  {#if activity}
+  {#if activity && !card}
     <span
       class="pointer-events-none absolute top-1/2 right-3 size-2 -translate-y-1/2 rounded-full
-             group-hover/row:opacity-0 peer-focus-visible/close:opacity-0
+             {compact
+        ? 'translate-x-1 -translate-y-3!'
+        : 'group-hover/row:opacity-0 peer-focus-visible/close:opacity-0'}
              {ACTIVITY_DOT[activity]}"
       aria-hidden="true"
     ></span>
@@ -351,9 +378,16 @@
   {#if line?.edge === 'bottom'}
     <span
       class="pointer-events-none absolute right-0 -bottom-0.5 h-0.5 drop-line"
-      style:left="calc({line.depth} * var(--sidebar-indent))"
+      style:left="calc({compact || card ? 0 : line.depth} * var(--sidebar-indent))"
     ></span>
   {:else if last && reorder.landsAtEnd(section)}
     <span class="pointer-events-none absolute inset-x-0 -bottom-0.5 h-0.5 drop-line"></span>
   {/if}
 </li>
+
+<style>
+  .icon-only {
+    justify-content: center;
+    padding-inline: 0;
+  }
+</style>

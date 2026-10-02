@@ -15,6 +15,7 @@ export function createAgentRenderer(provider: AgentProvider): RendererExtension<
     launcher: [
       {
         id: 'session',
+        supportsMultiline: false,
         label: provider.name,
         icon: provider.icon,
         keywords: ['ai', 'agent', 'assistant', 'chat'],
@@ -26,6 +27,7 @@ export function createAgentRenderer(provider: AgentProvider): RendererExtension<
       },
       {
         id: 'ask',
+        supportsMultiline: true,
         label: `Ask ${provider.askName ?? provider.name}`,
         icon: provider.icon,
         typed: true,
@@ -39,11 +41,12 @@ export function createAgentRenderer(provider: AgentProvider): RendererExtension<
     newTask: [
       {
         id: 'ask',
+        supportsMultiline: true,
         label: `Ask ${provider.askName ?? provider.name}`,
         icon: provider.icon,
         typed: true,
         open: async (text, host) => ({
-          title: text,
+          title: text.split(/[\r\n]/)[0],
           tabs: [
             {
               type,

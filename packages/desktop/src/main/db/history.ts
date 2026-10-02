@@ -1,9 +1,41 @@
-import { and, desc, eq, ilike, inArray, or } from 'drizzle-orm'
+import { and, desc, eq, ilike, inArray, isNull, ne, or } from 'drizzle-orm'
 import type { HistoryEntry } from '@fluid/sdk'
 import { db } from './client'
 import { historyEntries, siteIcons } from './schema'
 
 export type NewHistoryEntry = typeof historyEntries.$inferInsert
+
+export async function getHistory(taskId: string, id: string): Promise<HistoryEntry | undefined> {
+  const [entry] = await db()
+    .select()
+    .from(historyEntries)
+    .where(and(eq(historyEntries.taskId, taskId), eq(historyEntries.id, id)))
+  return entry
+}
+
+/** Enrich the same saved session across visits, including after an app restart. */
+export async function updateSessionHistory(entry: NewHistoryEntry): Promise<boolean> {
+  if (!entry.sessionId || !entry.tabId) return false
+  const rows = await db()
+    .update(historyEntries)
+    .set({ title: entry.title, sessionId: entry.sessionId })
+    .where(
+      and(
+        eq(historyEntries.taskId, entry.taskId),
+        eq(historyEntries.type, entry.type),
+        entry.location
+          ? eq(historyEntries.location, entry.location)
+          : isNull(historyEntries.location),
+        or(
+          eq(historyEntries.sessionId, entry.sessionId),
+          and(eq(historyEntries.tabId, entry.tabId), isNull(historyEntries.sessionId))
+        ),
+        or(ne(historyEntries.title, entry.title), isNull(historyEntries.sessionId))
+      )
+    )
+    .returning({ id: historyEntries.id })
+  return rows.length > 0
+}
 
 export async function listHistory(
   taskId: string,

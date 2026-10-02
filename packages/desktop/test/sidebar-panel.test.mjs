@@ -79,6 +79,7 @@ function setup() {
         electron: { WebContentsView, screen: { getCursorScreenPoint: () => ({ x: 3, y: 100 }) } },
         path: { join: (...parts) => parts.join('/') },
         '@electron-toolkit/utils': { is: { dev: false } },
+        '../shared/sidebar-width': { SIDEBAR_WIDTH: { default: 224 } },
         '../shared/sidebar-panel': {
           SIDEBAR_CLOSE_MS: 200,
           SIDEBAR_PANEL_BLEED: 12,
@@ -194,4 +195,52 @@ test('newly attached tabs and split-drop glass remain beneath the visible panel'
   assert.deepEqual(app.children, [page, app.panels[0]])
   assert.equal(app.api.isSidebarPanel(app.panels[0].webContents), true)
   assert.equal(app.api.isSidebarPanel({}), false)
+})
+
+test('icon cards preload while docked and overlay the source row on either rail', async () => {
+  const app = setup()
+  const rail = { collapsed: false, railWidth: 56, sidebarWidth: 56 }
+  app.update(rail)
+  assert.equal(app.panels.length, 1)
+  assert.equal(app.children.length, 0)
+  await app.loaded()
+  const hover = { id: 'tab', left: 6, top: 120, width: 44, height: 36, iconInset: 14, iconSize: 16 }
+  app.update({ ...rail, open: true, hover })
+  await Promise.resolve()
+  const panel = app.panels[0]
+  assert.deepEqual(app.children, [panel])
+  assert.deepEqual(panel.bounds, { x: 0, y: 114, width: 236, height: 48 })
+  app.update({ ...rail, open: true, hover: { ...hover, left: 950 }, sidebarPosition: 'right' })
+  assert.deepEqual(panel.bounds, { x: 764, y: 114, width: 236, height: 48 })
+  app.update(rail)
+  assert.deepEqual(app.children, [], 'cards close without the full sidebar slide delay')
+})
+
+test('icon cards stay within short or narrow windows, including after resize', async () => {
+  const app = setup()
+  app.update({
+    collapsed: false,
+    railWidth: 56,
+    open: true,
+    hover: { id: 'tab', left: 6, top: 690, width: 44, height: 47, iconInset: 12, iconSize: 20 }
+  })
+  await app.loaded()
+  const panel = app.panels[0]
+  assert.equal(panel.bounds.y + panel.bounds.height, 700)
+  app.host.size = { width: 240, height: 160 }
+  app.host.emit('resize')
+  assert.deepEqual(panel.bounds, { x: 0, y: 101, width: 236, height: 59 })
+})
+
+test('switching from a card to a collapsed peek restores full panel geometry', async () => {
+  const app = setup()
+  app.update({
+    collapsed: false,
+    railWidth: 56,
+    open: true,
+    hover: { id: 'tab', left: 6, top: 120, width: 44, height: 36, iconInset: 14, iconSize: 16 }
+  })
+  await app.loaded()
+  app.update({ open: true })
+  assert.deepEqual(app.panels[0].bounds, { x: 0, y: 40, width: 242, height: 660 })
 })

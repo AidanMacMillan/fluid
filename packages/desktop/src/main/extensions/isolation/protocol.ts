@@ -2,6 +2,7 @@ import type {
   BookmarkContribution,
   ExtensionPermissions,
   FileViewerContribution,
+  HistoryEntry,
   ProcessOptions,
   ProcessResult,
   Tab,
@@ -54,7 +55,12 @@ export type Registration =
         /** The payload's schema as JSON Schema; the main process checks payloads against it. */
         payloadSchema?: Record<string, unknown>
         view?: ViewDeclarationData
-        history?: { location?: string; sessionId?: string }
+        history?: {
+          location?: string
+          sessionId?: string
+          payload?: string[]
+          hasRestore?: boolean
+        }
         hasPinnedUrl: boolean
         hasMenu: boolean
         hasOnStop: boolean
@@ -155,6 +161,7 @@ export type HostCall =
   | { type: 'taskType.actions'; registration: RegistrationId; task: Task } // → TaskActionData[]
   | { type: 'taskType.run'; registration: RegistrationId; task: Task; actionId: string } // → void
   | { type: 'tabType.pinnedUrl'; registration: RegistrationId; tab: Tab } // → string | null
+  | { type: 'tabType.restoreHistory'; registration: RegistrationId; entry: HistoryEntry } // → payload | null
   | { type: 'tabType.menu'; registration: RegistrationId; tab: Tab } // → { token, items }
   | { type: 'tabType.menuClick'; token: number; index: number } // → void
   | { type: 'tabType.onStop'; registration: RegistrationId; tab: Tab } // → void

@@ -77,6 +77,7 @@ const handlers: Handlers = {
   'tasks.setSplits': ({ id, splits, activeTabId }) => tasks.setSplits(id, splits, activeTabId),
 
   'history.list': (input) => history.list(input),
+  'history.open': (input) => history.open(input),
   'history.record': (input, caller) =>
     history.record(input, caller.kind === 'extension' ? caller.extensionId : null),
   'history.delete': ({ taskId, id }) => history.remove(taskId, id),
