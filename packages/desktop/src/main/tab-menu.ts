@@ -1,6 +1,7 @@
 import { Menu, type BrowserWindow, type MenuItemConstructorOptions } from 'electron'
 import { NEW_TASK_TITLE, splitContaining, type Tab, type TabMenuItem } from '@fluid/sdk'
 import { tabType } from './api/contributions'
+import { isAudioMuted } from './browser-views'
 import { folderContents, getFolder } from './db/folders'
 import { getTab } from './db/tabs'
 import { getTask, listTasks } from './db/tasks'
@@ -35,6 +36,7 @@ export type TabMenuOptions = {
  */
 export type TabMenuChoice =
   | { kind: 'duplicate' }
+  | { kind: 'toggle-audio-muted' }
   | { kind: 'float' }
   | { kind: 'move'; taskId: string }
   | { kind: 'unsplit' }
@@ -58,7 +60,7 @@ export async function popupTabMenu(
   const split = splitContaining((await getTask(tab.taskId))?.splits ?? [], tab.id)
 
   return popup<TabMenuChoice>(window, (settle) => {
-    const head = own ?? browserItems(tab.profile, settle)
+    const head = own ?? browserItems(tab, settle)
     const divider: MenuItemConstructorOptions[] = head.length > 0 ? [{ type: 'separator' }] : []
     // The tab stays where it is in the sidebar; only the split lets go of it.
     const unsplit: MenuItemConstructorOptions[] = split
@@ -176,11 +178,15 @@ function moveItem(
 }
 
 function browserItems(
-  profile: number | null,
+  tab: Tab,
   settle: (choice: TabMenuChoice) => void
 ): MenuItemConstructorOptions[] {
   return [
     { label: 'Duplicate Tab', click: () => settle({ kind: 'duplicate' }) },
+    {
+      label: isAudioMuted(tab.id) ? 'Unmute Tab' : 'Mute Tab',
+      click: () => settle({ kind: 'toggle-audio-muted' })
+    },
     {
       // The same as the View menu's item, shortcut and all. Shown here but
       // not registered: the application menu already owns the accelerator.
@@ -192,7 +198,7 @@ function browserItems(
     { type: 'separator' },
     {
       label: 'Reopen in Profile',
-      submenu: profileMenuItems({ verb: 'reopen', current: profile, allowReset: true }, settle)
+      submenu: profileMenuItems({ verb: 'reopen', current: tab.profile, allowReset: true }, settle)
     }
   ]
 }

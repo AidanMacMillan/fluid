@@ -60,8 +60,8 @@
   const label = $derived(workspace.labelFor(tab))
   const loading = $derived(workspace.pages[tab.id]?.loading ?? false)
   const audioMuted = $derived(workspace.pages[tab.id]?.audioMuted ?? false)
-  // Keep the control available after muting, even once the page falls silent.
-  const showAudio = $derived(audioMuted || (workspace.pages[tab.id]?.audible ?? false))
+  // Muting a silent tab from its menu should not reveal the audio control.
+  const showAudio = $derived(workspace.pages[tab.id]?.audible ?? false)
   /** Dimmed while it is being carried, on its own or in a folder that is. */
   const dragging = $derived(reorder.carries(tab.id, row.within))
   /** The line a drop would be let go along, when it is this row's to draw. */
@@ -140,7 +140,7 @@
   })
 
   /**
-   * The row's right-click menu. A browser tab's: duplicating it, floating it
+   * The row's right-click menu. A browser tab's: duplicating it, muting it, floating it
    * in a window of its own (as Cmd+Shift+P does), and reopening it in another
    * profile or emptying the one it is in. Reopening rather than switching,
    * because a view's partition is fixed when it is created — see
@@ -159,6 +159,7 @@
     if (!choice) return
 
     if (choice.kind === 'duplicate') await workspace.duplicateTab(tab.id)
+    else if (choice.kind === 'toggle-audio-muted') window.api.browser.toggleAudioMuted(tab.id)
     else if (choice.kind === 'float') await workspace.floatTab(tab.id)
     else if (choice.kind === 'move') await workspace.moveTabToTask(tab.id, choice.taskId)
     else if (choice.kind === 'unsplit') await workspace.removeFromSplit(tab.id)
