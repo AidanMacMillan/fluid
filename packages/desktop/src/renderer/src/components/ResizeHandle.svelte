@@ -35,6 +35,8 @@
     onresize: (width: number) => void
     /** Once the drag ends, with the width to keep. */
     oncommit: (width: number) => void
+    /** Activate with a click or Enter/Space without resizing. */
+    onactivate?: () => void
   }
 
   const {
@@ -47,16 +49,24 @@
     class: className = '',
     markClass = 'top-(--radius-surface) bottom-0',
     onresize,
-    oncommit
+    oncommit,
+    onactivate
   }: Props = $props()
 
   /** How far one arrow-key press moves the edge. */
   const STEP = 16
+  const DRAG_THRESHOLD = 4
 
   let handle = $state<HTMLElement | null>(null)
 
   /** Where the pointer and the edge started; null when no drag is in flight. */
-  let drag = $state.raw<{ pointerId: number; x: number; width: number } | null>(null)
+  let drag = $state.raw<{
+    pointerId: number
+    x: number
+    y: number
+    width: number
+    moved: boolean
+  } | null>(null)
 
   /**
    * The width the pointer is asking for, before clamping. The clamped width is
@@ -118,7 +128,13 @@
     // it is for all of the drag but the first pixel, and it is what holds the
     // resize cursor while the pointer is over the page.
     handle?.setPointerCapture(event.pointerId)
-    drag = { pointerId: event.pointerId, x: event.screenX, width }
+    drag = {
+      pointerId: event.pointerId,
+      x: event.screenX,
+      y: event.screenY,
+      width,
+      moved: false
+    }
     wanted = width
   }
 
@@ -131,6 +147,10 @@
       end(event)
       return
     }
+    if (Math.hypot(event.screenX - drag.x, event.screenY - drag.y) >= DRAG_THRESHOLD) {
+      drag.moved = true
+    }
+    if (onactivate && !drag.moved) return
     // Measured from where the drag began rather than from the current width:
     // once clamped, the width stops tracking the pointer, and a step-by-step
     // sum would lose the distance the pointer covered past the end.
@@ -141,11 +161,22 @@
   /** Runs on release, on cancel, and if the handle goes away mid-drag. */
   function end(event: PointerEvent): void {
     if (!drag || event.pointerId !== drag.pointerId) return
+    const activate =
+      onactivate &&
+      event.type === 'pointerup' &&
+      !drag.moved &&
+      Math.hypot(event.screenX - drag.x, event.screenY - drag.y) < DRAG_THRESHOLD
     drag = null
-    oncommit(clamp(wanted))
+    if (activate) onactivate?.()
+    else oncommit(clamp(wanted))
   }
 
   function onkeydown(event: KeyboardEvent): void {
+    if (onactivate && (event.key === 'Enter' || event.key === ' ')) {
+      event.preventDefault()
+      if (!event.repeat) onactivate()
+      return
+    }
     const step = event.key === 'ArrowLeft' ? -STEP : event.key === 'ArrowRight' ? STEP : 0
     if (step === 0) return
     event.preventDefault()
