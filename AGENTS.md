@@ -15,3 +15,7 @@ and imperative. Mark breaking changes with `!` or a `BREAKING CHANGE:` footer.
 Before pushing, check every commit introduced by the branch for compliance.
 PR titles must also follow this format so squash merges produce compliant
 commit messages.
+
+## Branch names
+
+Branch names should follow the `<name>/<short-description>` convention.
