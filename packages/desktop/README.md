@@ -13,6 +13,8 @@ pnpm dev
 ```
 
 Workspace packages are bundled from source; they do not need separate builds.
+The `dev` and `start` scripts ensure the Electron executable is installed before
+launching electron-vite. The first run may need network access to download it.
 
 ```bash
 pnpm typecheck   # check every workspace package

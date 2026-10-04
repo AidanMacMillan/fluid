@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { keepSelectionInView } from '@fluid/sdk'
+  import { keepSelectionInView, selectOnMouseMove } from '@fluid/sdk'
   import { untrack } from 'svelte'
   import type { ThreadUser } from '../../main/slack-thread'
   import { slackWorkspace } from '../lib/slack.svelte'
@@ -384,7 +384,7 @@
           <button
             type="button"
             aria-selected={index === selected}
-            onmouseenter={() => (selected = index)}
+            use:selectOnMouseMove={() => (selected = index)}
             onclick={() => accept(suggestion)}
             class="flex w-full items-center gap-2 rounded-md glass-control px-2 py-1.5 text-left"
           >

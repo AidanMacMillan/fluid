@@ -79,7 +79,9 @@
     color 120ms ease,
     box-shadow 120ms ease;
 
-  &:hover {
+  /* Rows selected by mouse movement share their keyboard highlight. A
+     stationary pointer must not light a second row after keyboard navigation. */
+  &:hover:not([data-mouse-selection]) {
     background-color: --alpha(var(--theme-glow) / 8%);
   }
 

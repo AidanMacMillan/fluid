@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { keepSelectionInView, type HistoryEntry, type Tab } from '@fluid/sdk'
+  import { keepSelectionInView, selectOnMouseMove, type HistoryEntry, type Tab } from '@fluid/sdk'
   import type { HistoryContext } from '../../main/history-window'
   import { fluid } from './lib/api'
   import { extensions } from './lib/extensions.svelte'
@@ -262,7 +262,7 @@
             <li
               class="history-entry group flex items-center gap-3 rounded-lg px-2 py-2"
               aria-current={selected === index}
-              onmouseenter={() => (selected = index)}
+              use:selectOnMouseMove={() => (selected = index)}
               onfocusin={() => (selected = index)}
             >
               <time
@@ -314,7 +314,7 @@
                 onclick={() => forget(entry)}
                 aria-label={'Delete visit to ' + entry.title}
                 title="Remove from history"
-                class="history-remove flex size-6 shrink-0 items-center justify-center rounded-md text-ink-500 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-white/10 hover:text-ink-100 focus-visible:opacity-100"
+                class="history-remove flex size-6 shrink-0 items-center justify-center rounded-md text-ink-500 opacity-0 transition-opacity group-focus-within:opacity-100 hover:bg-white/10 hover:text-ink-100 focus-visible:opacity-100"
                 ><span class="icon-[ph--x] text-xs" aria-hidden="true"></span></button
               >
             </li>
@@ -344,7 +344,6 @@
     transition: background-color 120ms ease;
   }
 
-  .history-entry:hover,
   .history-entry[aria-current='true'] {
     background-color: color-mix(in srgb, var(--theme-glow) 7%, transparent);
   }

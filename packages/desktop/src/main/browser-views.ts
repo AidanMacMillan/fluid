@@ -322,6 +322,9 @@ let hostWindow: BrowserWindow | undefined
 /** tab id → the view rendering it. Views outlive deselection; only closing a tab destroys one. */
 const views = new Map<string, WebContentsView>()
 
+/** Tabs muted before their first view is created. Applied before the page loads. */
+const pendingAudioMuted = new Set<string>()
+
 /**
  * tab id → the browsing context its view was created in: which space, and which
  * profile within it. Held here rather than read back off the view because it is
@@ -1303,6 +1306,7 @@ function createView(
   view.setBorderRadius(CORNER_RADIUS)
 
   const { webContents } = view
+  if (pendingAudioMuted.delete(tabId)) webContents.setAudioMuted(true)
   if (kind === 'page') adBlocker.attach(webContents)
 
   // Electron handles the native window transition and Escape. The child view
@@ -1954,11 +1958,24 @@ export function reload(tabId: string): void {
   views.get(tabId)?.webContents.reload()
 }
 
-/** Mutes only this tab, including when its page is in the background. */
-export function toggleAudioMuted(tabId: string): void {
+/** Includes tabs that have not loaded a page yet. */
+export function isAudioMuted(tabId: string): boolean {
   const view = views.get(tabId)
-  if (!view || view.webContents.isDestroyed()) return
-  view.webContents.setAudioMuted(!view.webContents.isAudioMuted())
+  return view && !view.webContents.isDestroyed()
+    ? view.webContents.isAudioMuted()
+    : pendingAudioMuted.has(tabId)
+}
+
+/** Mutes only this tab, including before loading or while in the background. */
+export function toggleAudioMuted(tabId: string): void {
+  const muted = !isAudioMuted(tabId)
+  const view = views.get(tabId)
+  if (!view || view.webContents.isDestroyed()) {
+    if (muted) pendingAudioMuted.add(tabId)
+    else pendingAudioMuted.delete(tabId)
+    return
+  }
+  view.webContents.setAudioMuted(muted)
   // Muting need not change whether the page is emitting audio.
   publish(tabId, view)
 }
@@ -2306,6 +2323,7 @@ function contextInUse(context: BrowsingContext): boolean {
 
 /** Tears down the view for a closed tab. Its page is gone for good. */
 export function destroyBrowserView(tabId: string): void {
+  pendingAudioMuted.delete(tabId)
   // Whatever the next view is made from, it asks for afresh.
   forgetWebViewUrl(tabId)
   const view = views.get(tabId)
@@ -2337,6 +2355,7 @@ export function destroyBrowserView(tabId: string): void {
 }
 
 export function destroyAllBrowserViews(): void {
+  pendingAudioMuted.clear()
   for (const tabId of [...views.keys()]) destroyBrowserView(tabId)
   // Children of the same window the views were children of, so they go when
   // those do — on the window closing, and on a new one replacing it.

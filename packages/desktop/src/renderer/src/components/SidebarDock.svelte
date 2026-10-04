@@ -56,6 +56,16 @@
   // The mounted dock keeps its row layout while sliding in or out. Visibility
   // controls interaction, not whether its icons acquire labels mid-animation.
   const compact = $derived(workspace.sidebarWidth === SIDEBAR_WIDTH.icons)
+  let expandedWidth: number = SIDEBAR_WIDTH.default
+
+  function toggleIconOnly(): void {
+    if (compact) workspace.endSidebarResize(expandedWidth)
+    else {
+      expandedWidth = workspace.sidebarWidth
+      workspace.endSidebarResize(SIDEBAR_WIDTH.icons)
+    }
+  }
+
   const railActive = $derived(open && compact)
   let hover = $state<SidebarHover | null>(null)
   let sourceHovered = false
@@ -337,6 +347,7 @@
       max={SIDEBAR_WIDTH.max}
       onresize={(width) => workspace.resizeSidebar(width)}
       oncommit={(width) => workspace.endSidebarResize(width)}
+      onactivate={toggleIconOnly}
     />
   {/if}
 </div>
