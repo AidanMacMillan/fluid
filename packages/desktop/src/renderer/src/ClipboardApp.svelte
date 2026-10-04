@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { keepSelectionInView, storedFileUrl } from '@fluid/sdk'
+  import { keepSelectionInView, selectOnMouseMove, storedFileUrl } from '@fluid/sdk'
   import type { ClipboardEntry } from '../../main/db/schema'
   import type { ClipboardContext } from '../../main/clipboard-window'
   import {
@@ -276,12 +276,10 @@
              a press, not a selection. So the row is inert and the actions it
              used to stand for have moved out to the buttons on its right. -->
         <li class="relative">
-          <!-- Hover moves the selection rather than drawing a highlight of its
-               own: one row is the row Enter would take, however the pointer and
-               the arrow keys got it there. -->
+          <!-- Mouse movement and arrow keys share one selection and highlight. -->
           <div
             aria-selected={index === selected}
-            onmouseenter={() => (selected = index)}
+            use:selectOnMouseMove={() => (selected = index)}
             class="flex w-full items-start gap-2.5 rounded-lg glass-control py-2 pr-16 pl-2.5
                    text-left"
           >

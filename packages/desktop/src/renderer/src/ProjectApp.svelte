@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { keepSelectionInView } from '@fluid/sdk'
+  import { keepSelectionInView, selectOnMouseMove } from '@fluid/sdk'
   import type { ProjectRow, ProjectsState } from '../../main/projects'
   import type { SpaceRow } from '../../main/spaces'
   import { matchesQuery } from './lib/search'
@@ -600,7 +600,7 @@
           <button
             type="button"
             aria-current={index === selected}
-            onmouseenter={() => (selected = index)}
+            use:selectOnMouseMove={() => (selected = index)}
             onclick={() => void create(row.withFolder)}
             disabled={busy || query.trim() === ''}
             class="flex w-full items-center gap-2.5 rounded-lg glass-control px-2.5 py-2 text-left
@@ -691,13 +691,11 @@
     >
       {#each matches as project, index (project.id)}
         <li>
-          <!-- Hover moves the selection rather than drawing a second highlight
-               of its own: one row is the row Enter would take, however the
-               pointer and the arrow keys got it there. -->
+          <!-- Mouse movement and arrow keys share one selection and highlight. -->
           <button
             type="button"
             aria-current={index === selected}
-            onmouseenter={() => (selected = index)}
+            use:selectOnMouseMove={() => (selected = index)}
             onclick={() => choose(project)}
             oncontextmenu={(event) => void menu(project, event)}
             class="flex w-full items-center gap-2.5 rounded-lg glass-control px-2.5 py-2 text-left"
@@ -748,7 +746,7 @@
         <button
           type="button"
           aria-current={selected === matches.length}
-          onmouseenter={() => (selected = matches.length)}
+          use:selectOnMouseMove={() => (selected = matches.length)}
           onclick={() => ask({ kind: 'new' }, query.trim())}
           class="flex w-full items-center gap-2.5 rounded-lg glass-control px-2.5 py-2 text-left"
         >
@@ -772,7 +770,7 @@
         <button
           type="button"
           aria-current={selected === matches.length + 1}
-          onmouseenter={() => (selected = matches.length + 1)}
+          use:selectOnMouseMove={() => (selected = matches.length + 1)}
           onclick={showSpaces}
           class="flex w-full items-center gap-2.5 rounded-lg glass-control px-2.5 py-2 text-left"
         >
@@ -806,7 +804,7 @@
           <button
             type="button"
             aria-current={index === selected}
-            onmouseenter={() => (selected = index)}
+            use:selectOnMouseMove={() => (selected = index)}
             onclick={() => ask({ kind: 'rename-space', space }, space.name)}
             oncontextmenu={(event) => void spaceMenu(space, event)}
             class="flex w-full items-center gap-2.5 rounded-lg glass-control px-2.5 py-2 text-left"
@@ -827,7 +825,7 @@
         <button
           type="button"
           aria-current={selected === spaceMatches.length}
-          onmouseenter={() => (selected = spaceMatches.length)}
+          use:selectOnMouseMove={() => (selected = spaceMatches.length)}
           onclick={() => ask({ kind: 'new-space', project: null }, query.trim())}
           class="flex w-full items-center gap-2.5 rounded-lg glass-control px-2.5 py-2 text-left"
         >

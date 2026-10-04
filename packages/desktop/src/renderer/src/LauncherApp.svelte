@@ -4,6 +4,7 @@
     forTypedText,
     keepSelectionInView,
     launcherDetail,
+    selectOnMouseMove,
     type Bookmark,
     type LauncherAlternative,
     type LauncherContext,
@@ -873,13 +874,11 @@
         {/if}
 
         <li>
-          <!-- Hover moves the selection rather than drawing a second highlight of
-             its own: one row is the row Enter would take, however the pointer
-             and the arrow keys got it there. -->
+          <!-- Mouse movement and arrow keys share one selection and highlight. -->
           <button
             type="button"
             aria-current={index === selected}
-            onmouseenter={() => (selected = index)}
+            use:selectOnMouseMove={() => (selected = index)}
             onclick={() => open(choice)}
             oncontextmenu={(event) => pick(choice, event)}
             class="flex w-full items-center gap-2.5 rounded-lg glass-control px-2.5 py-2 text-left"

@@ -3,6 +3,7 @@
     TASK_COLORS,
     TASK_ICONS,
     keepSelectionInView,
+    selectOnMouseMove,
     taskIcon,
     type Task,
     type TaskColor,
@@ -212,15 +213,14 @@
       style="grid-template-columns: repeat({COLUMNS}, minmax(0, 1fr))"
     >
       {#each icons as icon, index (icon.id)}
-        <!-- Hover moves the selection rather than drawing a highlight of its
-             own, as a launcher row's does: one glyph is the one Enter takes. -->
+        <!-- Mouse movement and arrow keys share one selection and highlight. -->
         <button
           type="button"
           role="option"
           aria-selected={index === selected}
           aria-label={icon.label}
           title={icon.label}
-          onmouseenter={() => (selected = index)}
+          use:selectOnMouseMove={() => (selected = index)}
           onfocus={() => (selected = index)}
           onclick={() => void chooseIcon(icon.id)}
           class="grid h-8 place-items-center rounded-lg glass-control"
