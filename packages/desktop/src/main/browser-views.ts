@@ -871,11 +871,18 @@ function publish(tabId: string, view: WebContentsView): void {
   // What a browser tab's chrome and row are drawn from. An extension's view is
   // not a page with an address to show, and its row is the extension's.
   if (isExtensionKind(viewKinds.get(tabId))) return
-  const { navigationHistory } = view.webContents
+  // A closing tab can still deliver events — audio going quiet, loading
+  // stopping — after its contents are gone, at which point `webContents` is
+  // undefined on the view. The tab is already out of `views` by then, and
+  // there is nothing left to report about it.
+  if (views.get(tabId) !== view) return
+  const webContents = view.webContents as WebContents | undefined
+  if (!webContents || webContents.isDestroyed()) return
+  const { navigationHistory } = webContents
   const state: BrowserViewState = {
     tabId,
-    url: view.webContents.getURL(),
-    title: view.webContents.getTitle(),
+    url: webContents.getURL(),
+    title: webContents.getTitle(),
     favicon: favicons.get(tabId)?.dataUrl ?? null,
     // Not `isLoading()`: that is Chromium's raw loading state, which also flips
     // for a same-document commit — an SPA's `pushState` — and for a subframe
