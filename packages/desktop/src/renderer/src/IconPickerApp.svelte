@@ -9,6 +9,7 @@
     type TaskColor,
     type TaskIcon
   } from '@fluid/sdk'
+  import ShortcutBar from './components/ShortcutBar.svelte'
   import { fluid } from './lib/api'
   import { matchesQuery } from './lib/search'
   import { TASK_COLOR_LABEL, TASK_COLOR_SWATCH, TASK_COLOR_TEXT } from './lib/task-colors'
@@ -260,4 +261,12 @@
       ></button>
     {/each}
   </div>
+
+  <ShortcutBar
+    hints={[
+      { keys: ['up', 'down', 'left', 'right'], label: 'Navigate' },
+      { keys: ['Enter'], label: 'Select' },
+      { keys: ['Esc'], label: 'Close' }
+    ]}
+  />
 </div>

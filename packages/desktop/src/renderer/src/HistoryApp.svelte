@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
   import { keepSelectionInView, selectOnMouseMove, type HistoryEntry, type Tab } from '@fluid/sdk'
   import type { HistoryContext } from '../../main/history-window'
+  import ShortcutBar from './components/ShortcutBar.svelte'
   import { fluid } from './lib/api'
   import { extensions } from './lib/extensions.svelte'
   import {
@@ -332,6 +333,15 @@
       </button>
     {/if}
   </div>
+
+  <ShortcutBar
+    hints={[
+      { keys: ['up', 'down'], label: 'Navigate' },
+      { keys: ['Enter'], label: 'Open' },
+      { keys: ['mod', 'Backspace'], label: 'Remove' },
+      { keys: ['Esc'], label: 'Close' }
+    ]}
+  />
 </div>
 
 <style>
