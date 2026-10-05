@@ -99,12 +99,20 @@
   $effect(() => {
     void workspace.activeTaskId
     void workspace.sidebarPosition
-    void workspace.sidebarResizing
     void compact
     void open
     void density
     hover = null
     panelHovered = false
+    sourceHovered = false
+  })
+
+  // A resize starting or ending clears the card, but not the panel's hover: the
+  // pointer is still on the panel when the handle is let go and no new enter
+  // event follows, so forgetting it here would let the peek close under the drag.
+  $effect(() => {
+    void workspace.sidebarResizing
+    hover = null
     sourceHovered = false
   })
 
