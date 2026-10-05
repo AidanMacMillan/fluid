@@ -1095,6 +1095,7 @@ function adoptPopup(tabId: string, host: BrowserWindow, popup: BrowserWindow): v
   // A popup shares its opener's session and, often, its host: left on the
   // default, zooming the popup would zoom the tab that opened it too.
   popup.webContents.setZoomMode('isolated')
+  if (viewKinds.get(tabId) === 'page') popup.webContents.setVisualZoomLevelLimits(1, 3)
   attachContextMenu(popup.webContents, popup, openLinkFrom(tabId))
   popup.webContents.setWindowOpenHandler((details) => handleWindowOpen(tabId, host, details))
   popup.webContents.on('did-create-window', (nested) => adoptPopup(tabId, host, nested))
@@ -1322,6 +1323,12 @@ function createView(
   // and the pill, which only speaks for the page in front, would never say so.
   // Set once: the mode holds across navigations.
   webContents.setZoomMode('isolated')
+
+  // Electron turns pinch-to-zoom off by default. It is a property of the
+  // content's own `webContents`, so enabling it here reaches the pages and
+  // documents and leaves the app's chrome, which is a different one, alone.
+  // Extension views are the app's own UI and stay as they are.
+  if (kind === 'page' || kind === 'file') webContents.setVisualZoomLevelLimits(1, 3)
 
   /**
    * The error status of the response now loading, held between the navigation
