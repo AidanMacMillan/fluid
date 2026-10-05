@@ -54,7 +54,9 @@ pnpm --filter @fluid/desktop db:check
 
 Commit the generated files in [resources/migrations](resources/migrations).
 The app applies them at startup to its PGlite database under Electron's
-`userData/pglite` directory.
+`userData/pglite` directory. Unpackaged runs (`pnpm dev`) use a separate
+`Fluid-dev` userData directory, so a dev build and the installed app have
+separate data and can run at the same time.
 
 ## Focused checks
 

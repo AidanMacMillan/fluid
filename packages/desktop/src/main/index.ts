@@ -160,6 +160,16 @@ function createWindow(): void {
   }
 }
 
+// An unpackaged run (pnpm dev) keeps its own userData directory, beside the
+// installed app's rather than inside it. The database, the vault, and the
+// single-instance lock all live under userData, so sharing it would let only
+// one of the two run at a time, and let a dev build migrate the installed
+// app's data. Electron reads the path lazily, but it must be set before
+// anything asks for it, so this stays at module scope.
+if (is.dev) {
+  app.setPath('userData', `${app.getPath('userData')}-dev`)
+}
+
 // The app serves the renderer over schemes of its own: its file store, and
 // whatever the extensions declare. Chromium only accepts the declaration before
 // `ready`, so it happens at module scope rather than alongside the handlers
@@ -168,11 +178,12 @@ registerAppSchemes()
 
 // A second instance would open the same PGlite data directory as the first,
 // interleaving writes from two separate clusters until neither pg_control nor
-// the WAL matches and the directory will not open at all. Only one may run.
+// the WAL matches and the directory will not open at all. Only one may run per
+// userData directory, which dev and the installed app no longer share.
 if (!app.requestSingleInstanceLock()) {
   if (is.dev) {
     console.error(
-      'Fluid is already running. Quit the existing Fluid app (Cmd+Q on macOS), then run pnpm dev again.'
+      'A dev instance of Fluid is already running. Quit it (Cmd+Q on macOS), then run pnpm dev again.'
     )
   }
   app.exit(is.dev ? 1 : 0)
