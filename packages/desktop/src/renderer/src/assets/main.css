@@ -30,6 +30,8 @@
      tab count (see TopBar), so it is the cap on a lone tab and the basis every
      tab shrinks down from once the strip is full. */
   --width-tab: 20rem;
+  /* A pinned task's tab, which is its icon and nothing else (see TaskTab). */
+  --width-tab-pinned: 2rem;
 
   /* The well's rounding. The native WebContentsView inside it is square (see
      CORNER_RADIUS in src/main/browser-views.ts), so this curve only ever lands

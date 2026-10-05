@@ -18,6 +18,9 @@
 
   const { task, index, last }: Props = $props()
 
+  /** Pinned tasks are a strip of their own: they reorder among themselves only. */
+  const kind = $derived(task.pinned ? 'pinned-task' : 'task')
+
   const selected = $derived(workspace.activeTaskId === task.id)
   const label = $derived(task.title ?? NEW_TASK_TITLE)
   const dragging = $derived(reorder.dimmed === task.id)
@@ -63,6 +66,37 @@
   }
 
   /**
+   * The task's own right-click menu, native for the reason the sidebar rows'
+   * are: the strip is right above a browser tab's view (see src/main/tab-menu.ts).
+   */
+  async function openMenu(event: MouseEvent): Promise<void> {
+    event.preventDefault()
+    const choice = await window.api.browser.taskMenu({ taskId: task.id })
+    if (!choice) return
+
+    if (choice.kind === 'pin' || choice.kind === 'unpin') {
+      await workspace.setTaskPinned(task.id, choice.kind === 'pin')
+    } else if (choice.kind === 'rename') {
+      startRenaming()
+    } else if (choice.kind === 'change-icon') {
+      // The picker works on the task it is given, viewed or not.
+      window.api.launcher.pickIcon(task.id)
+    } else {
+      await workspace.closeTask(task.id)
+    }
+  }
+
+  /**
+   * A pinned tab is all icon, so its one click does both jobs: it selects a task
+   * that is not being viewed, and changes the icon of the one that is. The
+   * unpinned tab's icon is a button only once it is selected (see below).
+   */
+  async function onIconClick(): Promise<void> {
+    if (selected) window.api.launcher.pickIcon(task.id)
+    else await workspace.selectTask(task.id)
+  }
+
+  /**
    * A tab or folder dragged up from the sidebar, which lands at the foot of
    * this task's loose tabs with the window following it — the same move as the
    * row's Move to Task menu (see `moveTabToTask` and `moveFolderToTask`). Not
@@ -96,9 +130,12 @@
      would leave the strip collapsed to the titles and never be reached. -->
 <div
   role="presentation"
-  class="group/tab relative min-w-24 shrink grow basis-0 {dragging ? 'opacity-40' : ''}"
+  class="group/tab relative {task.pinned
+    ? 'w-(--width-tab-pinned) shrink-0'
+    : 'min-w-24 shrink grow basis-0'} {dragging ? 'opacity-40' : ''}"
+  oncontextmenu={openMenu}
   ondragover={(event) => {
-    reorder.over(event, 'task', index, 'x')
+    reorder.over(event, kind, index, 'x')
     onTabOver(event)
   }}
   ondragleave={(event) => reorder.leaveTask(event, task.id)}
@@ -112,11 +149,49 @@
     aria-hidden="true"
   ></span>
 
-  {#if reorder.lineAt('task', index)}
+  {#if reorder.lineAt(kind, index)}
     <span class="pointer-events-none absolute inset-y-0.5 -left-[3px] w-0.5 drop-line"></span>
   {/if}
 
-  {#if renaming}
+  {#if task.pinned}
+    <!-- Just the icon, with the name left to the tooltip. The tab is all icon,
+         so the tab is the icon's button: the first click selects it and a click
+         on the one being viewed changes the icon (see `onIconClick`), lit the
+         way the unpinned tab's icon button is. No close
+         button: a pinned task is one that should stay, so closing it is the
+         menu's. -->
+    <button
+      type="button"
+      role="tab"
+      aria-selected={selected}
+      aria-label={label}
+      title={selected ? `${label} · Change icon` : label}
+      draggable="true"
+      ondragstart={(event) => reorder.start(event, kind, task.id, index)}
+      ondragend={() => reorder.end()}
+      onclick={() => void onIconClick()}
+      class="grid h-7 w-full place-items-center rounded-md glass-control no-drag
+             {selected ? 'text-ink-50' : 'text-ink-400 hover:text-ink-200'}"
+    >
+      <span
+        class="grid size-5 place-items-center rounded {selected ? 'hover:bg-glow/10' : ''}"
+        aria-hidden="true"
+      >
+        <span class="{icon.className} text-sm {iconColor}"></span>
+      </span>
+      {#if activity}
+        <span class="sr-only">{ACTIVITY_LABEL[activity]}</span>
+      {/if}
+    </button>
+    {#if activity}
+      <span
+        class="pointer-events-none absolute top-0.5 right-0.5 size-1.5 rounded-full {ACTIVITY_DOT[
+          activity
+        ]}"
+        aria-hidden="true"
+      ></span>
+    {/if}
+  {:else if renaming}
     <input
       use:autoselect
       bind:value={draft}
@@ -124,20 +199,26 @@
       onkeydown={onKeydown}
       class="h-7 w-full rounded-md bg-white/15 pr-2.5 pl-7 text-xs font-medium text-ink-50 ring-1 ring-white/20 outline-none no-drag"
     />
+    {#if !selected}
+      <div class="pointer-events-none absolute inset-y-0 left-0">{@render glyph()}</div>
+    {/if}
   {:else}
     <button
       type="button"
       role="tab"
       aria-selected={selected}
       draggable="true"
-      ondragstart={(event) => reorder.start(event, 'task', task.id, index)}
+      ondragstart={(event) => reorder.start(event, kind, task.id, index)}
       ondragend={() => reorder.end()}
       onclick={() => void workspace.selectTask(task.id)}
       ondblclick={startRenaming}
-      class="flex h-7 w-full items-center rounded-md glass-control py-1 pr-7 pl-7 text-xs
+      class="relative flex h-7 w-full items-center rounded-md glass-control py-1 pr-7 pl-7 text-xs
              font-medium no-drag
              {selected ? 'text-ink-50' : 'text-ink-400 hover:text-ink-200'}"
     >
+      {#if !selected}
+        {@render glyph()}
+      {/if}
       <span class="truncate text-left">{label}</span>
       {#if activity}
         <span class="sr-only">{ACTIVITY_LABEL[activity]}</span>
@@ -163,26 +244,42 @@
     {/if}
   {/if}
 
-  <!-- The task's icon, and the way to change it: a button of its own over the
-       tab's leading edge, the way the close button sits over its trailing one,
-       since a button cannot sit inside the tab's. Drawn while renaming too, so
-       the name does not jump sideways as the field swaps in.
+  <!-- The task's icon, as the button that changes it: over the tab's leading
+       edge, since a button cannot sit inside the tab's. Only on the task being
+       viewed, where it opens the picker. On any other the icon is part of the
+       tab's own button (see `glyph`), so hovering and clicking it are hovering
+       and clicking the tab: lit as a whole, and selecting it. That is the one
+       rule for the icon, and the pinned tab follows it with the whole tab as the
+       button.
 
-       Opens the picker as a panel over the window rather than a popover here,
-       for the reason the launcher is one: nothing drawn in this document can
-       cover a browser tab's native view, which is right below the strip. -->
-  <button
-    type="button"
-    onclick={() => window.api.launcher.pickIcon(task.id)}
-    aria-label="Change icon of {label}"
-    title={type ? `${type.label} · Change icon` : 'Change icon'}
-    class="absolute top-1/2 left-1 grid size-5 -translate-y-1/2 place-items-center rounded no-drag
-           hover:bg-glow/10 focus-visible:bg-glow/10"
-  >
-    <span class="{icon.className} text-sm {iconColor}" aria-hidden="true"></span>
-  </button>
+       The picker is a panel over the window rather than a popover here, for the
+       reason the launcher is one: nothing drawn in this document can cover a
+       browser tab's native view, which is right below the strip. -->
+  {#if !task.pinned && selected}
+    <button
+      type="button"
+      onclick={() => window.api.launcher.pickIcon(task.id)}
+      aria-label="Change icon of {label}"
+      title={type ? `${type.label} · Change icon` : 'Change icon'}
+      class="absolute top-1/2 left-1 grid size-5 -translate-y-1/2 place-items-center rounded
+             no-drag hover:bg-glow/10 focus-visible:bg-glow/10"
+    >
+      <span class="{icon.className} text-sm {iconColor}" aria-hidden="true"></span>
+    </button>
+  {/if}
 
-  {#if last && reorder.lineAt('task', index + 1)}
+  {#if last && reorder.lineAt(kind, index + 1)}
     <span class="pointer-events-none absolute inset-y-0.5 -right-[3px] w-0.5 drop-line"></span>
   {/if}
 </div>
+
+<!-- The icon as a bare glyph, in the place the icon button takes on the selected
+     task. Drawn inside whatever is under it, so that is what the pointer is on. -->
+{#snippet glyph()}
+  <span
+    class="absolute top-1/2 left-1 grid size-5 -translate-y-1/2 place-items-center"
+    aria-hidden="true"
+  >
+    <span class="{icon.className} text-sm {iconColor}"></span>
+  </span>
+{/snippet}

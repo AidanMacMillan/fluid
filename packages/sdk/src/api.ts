@@ -215,8 +215,17 @@ export const contract = {
     reopen: method(z.object({ id })).returns<Task>(),
     /** Deletes a task and everything in it, including the files its tabs hold. */
     delete: method(z.object({ id })).returns<void>(),
-    /** Rewrites the order of a project's open tasks. */
+    /**
+     * Rewrites the order of a project's open tasks. The pinned ones always come
+     * first, so `ids` is read as the pinned tasks in their order and then the
+     * unpinned ones in theirs.
+     */
     reorder: method(z.object({ projectId: id, ids: z.array(id) })).returns<Task[]>(),
+    /**
+     * Pins a task to the front of the strip, at the end of the pinned tasks, or
+     * unpins it back to the start of the unpinned ones.
+     */
+    setPinned: method(z.object({ id, pinned: z.boolean() })).returns<Task>(),
     /** Which tab the task opens on. */
     setActiveTab: method(z.object({ id, tabId: id.nullable() })).returns<Task>(),
     /**

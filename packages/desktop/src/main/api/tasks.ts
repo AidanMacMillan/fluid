@@ -18,6 +18,7 @@ import {
   listTasks,
   nextTaskPosition,
   reorderTasks as reorderTaskRows,
+  setTaskPinned,
   updateTask
 } from '../db/tasks'
 import { listTabs, setActiveTab as setActiveTabRow } from '../db/tabs'
@@ -93,8 +94,13 @@ export async function reopen(id: string): Promise<Task> {
   const task = found(await getTask(id), 'task')
   if (task.status === 'open') return task
   // Back at the end of the strip, rather than wherever it sat before it was
-  // settled — which may now be the middle of somebody else's order.
-  return change(id, { status: 'open', position: await nextTaskPosition(task.projectId) })
+  // settled — which may now be the middle of somebody else's order. Unpinned,
+  // so it comes back at the end of the strip and not in front of it.
+  return change(id, {
+    status: 'open',
+    pinned: false,
+    position: await nextTaskPosition(task.projectId)
+  })
 }
 
 export async function remove(id: string): Promise<void> {
@@ -108,6 +114,21 @@ export async function remove(id: string): Promise<void> {
   // A click on one of these would lead nowhere now.
   dismissTaskNotifications(id)
   emit({ type: 'task.deleted', task, tabs })
+}
+
+export async function setPinned(id: string, pinned: boolean): Promise<Task> {
+  const previous = found(await getTask(id), 'task')
+  if (previous.pinned === pinned) return previous
+  const task = found(await setTaskPinned(id, pinned), 'task')
+  emit({ type: 'task.updated', task, previous })
+  // The whole strip moved, not just this task: every position was renumbered,
+  // and a window that heard only about the one would sort it among stale ones.
+  emit({
+    type: 'tasks.reordered',
+    projectId: task.projectId,
+    tasks: await listTasks(task.projectId)
+  })
+  return task
 }
 
 export async function reorder(projectId: string, ids: string[]): Promise<Task[]> {

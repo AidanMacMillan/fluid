@@ -20,7 +20,9 @@
  * per kind, because it is not always the same answer for two rows of the same
  * list: a terminal has no address to be sent back to and so cannot be pinned,
  * and its drag says as much. The task strip is a scope of its own that nothing
- * crosses into or out of.
+ * crosses into or out of. The strip is in fact two of those: pinned tasks and
+ * unpinned ones are lists of their own, each reordered only among itself, and
+ * pinning is a menu choice rather than a drag.
  *
  * Nothing reorders across the two, but a tab can be handed to a task: let go on
  * one of the strip's tasks, it moves there (see `overTask`). That is not a slot
@@ -35,7 +37,7 @@
  * draw for it (see `aim`).
  */
 
-export type ReorderKind = 'task' | 'tab' | 'pinned-tab'
+export type ReorderKind = 'task' | 'pinned-task' | 'tab' | 'pinned-tab'
 
 /** The sidebar's two sections, named by the kind a drag in each one is. */
 export type SidebarSection = 'pinned-tab' | 'tab'
@@ -89,6 +91,9 @@ export type ReorderMove = {
  */
 const MIME: Record<ReorderKind, string> = {
   task: 'application/x-fluid-task',
+  // Its own type, so the platform itself refuses a pinned task over the
+  // unpinned ones and the other way about.
+  'pinned-task': 'application/x-fluid-pinned-task',
   tab: 'application/x-fluid-tab',
   'pinned-tab': 'application/x-fluid-tab'
 }

@@ -73,6 +73,7 @@ const handlers: Handlers = {
   'tasks.reopen': ({ id }) => tasks.reopen(id),
   'tasks.delete': ({ id }) => tasks.remove(id),
   'tasks.reorder': ({ projectId, ids }) => tasks.reorder(projectId, ids),
+  'tasks.setPinned': ({ id, pinned }) => tasks.setPinned(id, pinned),
   'tasks.setActiveTab': ({ id, tabId }) => tasks.setActiveTab(id, tabId),
   'tasks.setSplits': ({ id, splits, activeTabId }) => tasks.setSplits(id, splits, activeTabId),
 

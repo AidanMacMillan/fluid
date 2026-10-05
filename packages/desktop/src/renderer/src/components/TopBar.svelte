@@ -17,9 +17,22 @@
     return `${project.name} — ${where}`
   })
 
+  /**
+   * The strip is two lists, pinned tasks and then the rest, and a drag stays in
+   * the one it started in: each is reordered on its own and written back with
+   * the pinned ones first (see `reorderTasks`).
+   */
+  const pinnedTasks = $derived(workspace.tasks.filter((task) => task.pinned))
+  const unpinnedTasks = $derived(workspace.tasks.filter((task) => !task.pinned))
+
   function onDrop(event: DragEvent): void {
-    const next = reorder.drop(event, 'task', workspace.tasks)
-    if (next) void workspace.reorderTasks(next.map((task) => task.id))
+    const next = reorder.drop(event, 'task', unpinnedTasks)
+    if (next) void workspace.reorderTasks([...pinnedTasks, ...next].map((task) => task.id))
+  }
+
+  function onPinnedDrop(event: DragEvent): void {
+    const next = reorder.drop(event, 'pinned-task', pinnedTasks)
+    if (next) void workspace.reorderTasks([...next, ...unpinnedTasks].map((task) => task.id))
   }
 </script>
 
@@ -47,7 +60,7 @@
     <div
       role="presentation"
       class="flex min-w-0 flex-1 items-center gap-1"
-      ondragover={(event) => reorder.overRest(event, 'task', workspace.tasks.length)}
+      ondragover={(event) => reorder.overRest(event, 'task', unpinnedTasks.length)}
       ondragleave={(event) => reorder.leave(event)}
       ondrop={onDrop}
     >
@@ -63,12 +76,30 @@
       <div
         role="tablist"
         aria-label="Tasks"
-        style="width: calc({workspace.tasks.length} * var(--width-tab) + {workspace.tasks.length -
-          1} * var(--spacing))"
+        style="width: calc({pinnedTasks.length} * var(--width-tab-pinned) + {unpinnedTasks.length} * var(--width-tab) + {workspace
+          .tasks.length - 1} * var(--spacing))"
         class="flex min-w-0 shrink items-center gap-1 overflow-x-auto [&::-webkit-scrollbar]:hidden"
       >
-        {#each workspace.tasks as task, index (task.id)}
-          <TaskTab {task} {index} last={index === workspace.tasks.length - 1} />
+        <!-- Pinned tasks are a group of their own at the far left, which only
+             they can be dragged within. The wrapper claims a drag over the gaps
+             between them, as the outer span does for the unpinned ones; it is
+             exactly as wide as its tabs, so there is no ground past the last
+             one to resolve to the end. -->
+        {#if pinnedTasks.length > 0}
+          <div
+            role="presentation"
+            class="flex shrink-0 items-center gap-1"
+            ondragover={(event) => reorder.overGap(event, ['pinned-task'])}
+            ondragleave={(event) => reorder.leave(event)}
+            ondrop={onPinnedDrop}
+          >
+            {#each pinnedTasks as task, index (task.id)}
+              <TaskTab {task} {index} last={index === pinnedTasks.length - 1} />
+            {/each}
+          </div>
+        {/if}
+        {#each unpinnedTasks as task, index (task.id)}
+          <TaskTab {task} {index} last={index === unpinnedTasks.length - 1} />
         {/each}
       </div>
 

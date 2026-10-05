@@ -77,6 +77,46 @@ export async function popupTabMenu(
   })
 }
 
+export type TaskMenuOptions = {
+  /** The task whose tab in the strip was right-clicked. */
+  taskId: string
+}
+
+/** What was chosen from a task tab's menu. The renderer acts on it. */
+export type TaskMenuChoice =
+  | { kind: 'pin' }
+  | { kind: 'unpin' }
+  | { kind: 'rename' }
+  | { kind: 'change-icon' }
+  | { kind: 'close' }
+
+/**
+ * The right-click menu on a task's tab in the strip: pinning it or unpinning
+ * it, its name and icon, and closing it. Native for the reason the tab menu
+ * is: the strip sits right above a browser tab's own view.
+ *
+ * A pinned tab is drawn as its icon alone, with no field to type a name into,
+ * so it has no Rename — unpinning it brings the name back.
+ */
+export async function popupTaskMenu(
+  window: BrowserWindow | null,
+  options: TaskMenuOptions
+): Promise<TaskMenuChoice | null> {
+  const task = await getTask(options.taskId)
+  if (!task) return null
+
+  return popup<TaskMenuChoice>(window, (settle) => [
+    task.pinned
+      ? { label: 'Unpin Task', click: () => settle({ kind: 'unpin' }) }
+      : { label: 'Pin Task', click: () => settle({ kind: 'pin' }) },
+    { type: 'separator' },
+    ...(task.pinned ? [] : [{ label: 'Rename Task', click: () => settle({ kind: 'rename' }) }]),
+    { label: 'Change Icon…', click: () => settle({ kind: 'change-icon' }) },
+    { type: 'separator' },
+    { label: 'Close Task', click: () => settle({ kind: 'close' }) }
+  ])
+}
+
 export type FolderMenuOptions = {
   /** The folder whose row was right-clicked. */
   folderId: string

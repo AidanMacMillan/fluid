@@ -71,6 +71,12 @@ export type Task = {
    * the active one (see `splits.ts`). Empty for a task that has never split.
    */
   splits: TabSplit[]
+  /**
+   * Whether the task is pinned: drawn as just its icon, at the far left of the
+   * strip ahead of every unpinned task. Pinned and unpinned tasks are ordered
+   * separately, each by `position`.
+   */
+  pinned: boolean
   position: number
   createdAt: Date
   updatedAt: Date
