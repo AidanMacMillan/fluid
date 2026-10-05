@@ -33,6 +33,7 @@ function setup() {
       this.webContents = Object.assign(new EventEmitter(), {
         isDestroyed: () => false,
         setZoomMode: noop,
+        setVisualZoomLevelLimits: noop,
         setWindowOpenHandler: noop,
         loadURL: async () => {},
         executeJavaScript: async (script) => this.scripts.push(script),

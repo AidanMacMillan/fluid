@@ -11,7 +11,7 @@
     "./views": "./src/views/index.svelte.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit && svelte-check --tsconfig ./tsconfig.json"
+    "typecheck": "tsc --noEmit && svelte-check --fail-on-warnings --tsconfig ./tsconfig.json"
   },
   "dependencies": {
     "@fluid/sdk": "workspace:*",

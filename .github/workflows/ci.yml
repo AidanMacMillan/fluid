@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  pull_request:
+  merge_group:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Everything that only reads the source. Each step runs even if an earlier one
+  # failed, so one push shows every problem rather than the first.
+  check:
+    name: Check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      # Nothing in this job launches Electron, so skip its ~100 MB download.
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v7
+
+      # Installs pnpm (from "packageManager"), Node (from .node-version), the
+      # pnpm store cache, and the dependencies.
+      - uses: pnpm/setup@v3
+        with:
+          cache: true
+          require-lockfile: true
+
+      - name: Database migrations
+        if: '!cancelled()'
+        run: pnpm db:verify
+
+      - name: Unit tests
+        if: '!cancelled()'
+        run: pnpm test:unit
+
+      - name: Prettier
+        if: '!cancelled()'
+        run: pnpm format:check
+
+      - name: ESLint
+        if: '!cancelled()'
+        run: pnpm lint:ci
+
+      - name: Typecheck
+        if: '!cancelled()'
+        run: pnpm typecheck
+
+  build:
+    name: Build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      # Before setup, because its install is what downloads Electron.
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/electron
+          key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - uses: pnpm/setup@v3
+        with:
+          cache: true
+          require-lockfile: true
+
+      # Typechecking is the Check job's; this only proves the bundle builds.
+      # The app icons are generated, not checked in, and the bundle imports
+      # them, so the build first renders them in Electron. That needs a display
+      # (xvfb) and, on Ubuntu 24.04, the Chromium sandbox off, because the
+      # runner forbids the unprivileged user namespaces it relies on.
+      - name: Build the desktop bundle
+        run: xvfb-run -a pnpm build:all
+        env:
+          ELECTRON_DISABLE_SANDBOX: '1'
+
+  # The one status to require in the branch ruleset. Jobs can be added, split or
+  # renamed above without touching branch protection.
+  ci:
+    name: CI
+    needs: [check, build]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require every job to have passed
+        env:
+          RESULTS: ${{ toJSON(needs.*.result) }}
+        run: |
+          echo "$RESULTS"
+          if echo "$RESULTS" | grep -qE '"(failure|cancelled|skipped)"'; then exit 1; fi

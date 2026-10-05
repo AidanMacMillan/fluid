@@ -7,7 +7,7 @@ import { defineConfig } from 'drizzle-kit'
 export default defineConfig({
   dialect: 'postgresql',
   schema: './src/main/db/schema.ts',
-  out: './resources/migrations',
+  out: process.env.DRIZZLE_OUT ?? './resources/migrations',
   strict: true,
   verbose: true
 })

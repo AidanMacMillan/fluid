@@ -15,7 +15,7 @@ import { setToken, type TokenStatus } from './token'
 /**
  * Connecting Slack by signing in, rather than by pasting a token.
  *
- * The client secret lives in the OAuth server (`packages/app`), never here;
+ * The client secret lives in the OAuth server, never here;
  * see ../shared/oauth.ts for the flow end to end. This half makes the PKCE
  * verifier and keeps it, listens on 127.0.0.1 for the browser to come back,
  * and redeems the code it brings. The token arrives in the body of an HTTPS
@@ -23,8 +23,8 @@ import { setToken, type TokenStatus } from './token'
  */
 
 /**
- * The OAuth server. `FLUID_APP_URL` points a development build at a local
- * `wrangler dev` instead.
+ * The OAuth server, which is not part of this repository. `FLUID_APP_URL`
+ * points a development build at a local instance instead.
  */
 const DEFAULT_SERVER = 'https://fluid-app.<account>.workers.dev'
 

@@ -1,6 +1,6 @@
 /**
- * The contract between the extension and the OAuth server in `packages/app`,
- * which is the only place Slack's client secret lives.
+ * The contract between the extension and the OAuth server, which is the
+ * only place Slack's client secret lives.
  *
  * Pure, with no imports, because both sides read it: the extension's main
  * process builds these requests and the Worker checks them, and a rule stated
