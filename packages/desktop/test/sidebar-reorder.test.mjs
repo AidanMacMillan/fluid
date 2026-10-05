@@ -17,7 +17,7 @@ const javascript = ts.transpileModule(source, {
   compilerOptions: { target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.ESNext }
 }).outputText
 writeFileSync(modulePath, compileModule(javascript, { generate: 'client' }).js.code)
-const { reorder } = await import(modulePath)
+const { reorder, moveInStrip } = await import(modulePath)
 after(() => rmSync(directory, { recursive: true, force: true }))
 
 globalThis.window = { api: { haptics: { alignment: () => {} } } }
@@ -102,4 +102,67 @@ test('folder drags preserve descendant protection and clear completely on cancel
   assert.equal(reorder.dimmed, null)
   assert.equal(reorder.slot, null)
   assert.equal(reorder.resolveInSidebar(event(), 'tab'), null)
+})
+
+function taskEvent() {
+  return { ...event(), dataTransfer: { types: ['application/x-fluid-task'], setData: () => {} } }
+}
+
+function over(kind, index) {
+  const e = {
+    ...taskEvent(),
+    clientX: 0,
+    currentTarget: { getBoundingClientRect: () => ({ left: 0, width: 10 }) }
+  }
+  reorder.over(e, kind, index, 'x')
+  return e
+}
+
+test('a task can be let go in either list of the strip, and the drop says which', () => {
+  for (const [from, to] of [
+    ['task', 'pinned-task'],
+    ['pinned-task', 'task']
+  ]) {
+    reorder.end()
+    reorder.start(taskEvent(), from, 'a', 1, ['pinned-task', 'task'])
+    assert.equal(over(to, 0).defaultPrevented, true)
+    assert.deepEqual(reorder.resolve(taskEvent(), 'task'), {
+      from: { kind: from, index: 1 },
+      to: { kind: to, index: 0 }
+    })
+  }
+})
+
+test('moving a task across the strip pins or unpins it and keeps the order elsewhere', () => {
+  const pinned = ['p0', 'p1']
+  const unpinned = ['u0', 'u1', 'u2']
+
+  assert.deepEqual(
+    moveInStrip(pinned, unpinned, {
+      from: { kind: 'task', index: 1 },
+      to: { kind: 'pinned-task', index: 1 }
+    }),
+    { pinned: ['p0', 'u1', 'p1'], unpinned: ['u0', 'u2'], item: 'u1', crossed: true }
+  )
+  assert.deepEqual(
+    moveInStrip(pinned, unpinned, {
+      from: { kind: 'pinned-task', index: 0 },
+      to: { kind: 'task', index: 3 }
+    }),
+    { pinned: ['p1'], unpinned: ['u0', 'u1', 'u2', 'p0'], item: 'p0', crossed: true }
+  )
+  assert.deepEqual(
+    moveInStrip(pinned, unpinned, {
+      from: { kind: 'task', index: 0 },
+      to: { kind: 'task', index: 3 }
+    }),
+    { pinned, unpinned: ['u1', 'u2', 'u0'], item: 'u0', crossed: false }
+  )
+  assert.equal(
+    moveInStrip(pinned, unpinned, {
+      from: { kind: 'task', index: 9 },
+      to: { kind: 'task', index: 0 }
+    }),
+    null
+  )
 })

@@ -8,6 +8,9 @@
   import { extensions } from '../lib/extensions.svelte'
   import IconButton from './IconButton.svelte'
 
+  /** Both lists of the strip, which a task may be let go in whichever it started in. */
+  const STRIP = ['pinned-task', 'task'] as const
+
   type Props = {
     task: Task
     /** Position in the strip, which is what a drop is resolved against. */
@@ -18,7 +21,7 @@
 
   const { task, index, last }: Props = $props()
 
-  /** Pinned tasks are a strip of their own: they reorder among themselves only. */
+  /** Pinned tasks are a list of their own, which a task can still be dragged into or out of. */
   const kind = $derived(task.pinned ? 'pinned-task' : 'task')
 
   const selected = $derived(workspace.activeTaskId === task.id)
@@ -167,7 +170,7 @@
       aria-label={label}
       title={selected ? `${label} · Change icon` : label}
       draggable="true"
-      ondragstart={(event) => reorder.start(event, kind, task.id, index)}
+      ondragstart={(event) => reorder.start(event, kind, task.id, index, STRIP)}
       ondragend={() => reorder.end()}
       onclick={() => void onIconClick()}
       class="grid h-7 w-full place-items-center rounded-md glass-control no-drag
@@ -208,7 +211,7 @@
       role="tab"
       aria-selected={selected}
       draggable="true"
-      ondragstart={(event) => reorder.start(event, kind, task.id, index)}
+      ondragstart={(event) => reorder.start(event, kind, task.id, index, STRIP)}
       ondragend={() => reorder.end()}
       onclick={() => void workspace.selectTask(task.id)}
       ondblclick={startRenaming}
