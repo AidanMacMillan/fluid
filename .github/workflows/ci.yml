@@ -13,10 +13,6 @@ concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-env:
-  # Nothing here launches Electron, so skip its ~100 MB binary download.
-  ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
-
 jobs:
   # Everything that only reads the source. Each step runs even if an earlier one
   # failed, so one push shows every problem rather than the first.
@@ -24,6 +20,9 @@ jobs:
     name: Check
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    env:
+      # Nothing in this job launches Electron, so skip its ~100 MB download.
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
     steps:
       - uses: actions/checkout@v5
 
@@ -70,10 +69,22 @@ jobs:
           node-version: 24
           cache: pnpm
 
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/electron
+          key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
       - run: pnpm install --frozen-lockfile
 
       # Typechecking is the Check job's; this only proves the bundle builds.
-      - run: pnpm build:all
+      # The app icons are generated, not checked in, and the bundle imports
+      # them, so the build first renders them in Electron. That needs a display
+      # (xvfb) and, on Ubuntu 24.04, the Chromium sandbox off, because the
+      # runner forbids the unprivileged user namespaces it relies on.
+      - name: Build the desktop bundle
+        run: xvfb-run -a pnpm build:all
+        env:
+          ELECTRON_DISABLE_SANDBOX: '1'
 
   # The one status to require in the branch ruleset. Jobs can be added, split or
   # renamed above without touching branch protection.
