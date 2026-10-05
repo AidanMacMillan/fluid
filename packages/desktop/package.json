@@ -25,6 +25,7 @@
     "test:updater": "node --test test/updater.test.mjs",
     "test:claude-cli": "node --test test/claude-cli.test.mjs",
     "test:haptics": "node --test test/haptics.test.mjs",
+    "test:user-agent": "node --test test/user-agent.test.mjs",
     "test:history": "node --test test/history.test.mjs",
     "test:terminal": "node --test test/terminal.test.mjs",
     "icons": "electron scripts/theme-icons.mjs",

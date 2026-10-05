@@ -17,6 +17,7 @@ import { extensionSchemes, startExtensions, stopExtensions } from './extensions/
 import { isWebAddress } from '@fluid/sdk'
 import { applyPagePolicy } from './page-policy'
 import { registerAppSchemes } from './schemes'
+import { registerUserAgent } from './user-agent'
 import { registerApplicationMenu } from './menu'
 import { registerWindowOpener, restoreNotifications } from './notifications'
 import { registerTheme } from './theme'
@@ -175,6 +176,9 @@ if (is.dev) {
 // `ready`, so it happens at module scope rather than alongside the handlers
 // below — and only once, which is why it is one call (see ./schemes.ts).
 registerAppSchemes()
+
+// Before any session exists, so no page is ever loaded with Electron's UA.
+registerUserAgent()
 
 // A second instance would open the same PGlite data directory as the first,
 // interleaving writes from two separate clusters until neither pg_control nor
