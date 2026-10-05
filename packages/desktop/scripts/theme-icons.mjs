@@ -4,9 +4,13 @@
 // ship, and the reference every other version is drawn from. Each theme's
 // version is that same drawing with its four colours swapped for the theme's
 // own, taken from the tokens in src/renderer/src/assets/themes.css. At runtime
-// src/main/app-icon.ts puts the current theme's version in the dock.
+// src/main/app-icon.ts puts the current theme's version in the dock. Each also
+// has a dev version, with "DEV" across the square, for runs from source — so
+// the dev app is never mistaken for an installed one.
 //
-// Runs in Electron, which is already here and draws SVG the way the app does:
+// The PNGs are not checked in: scripts/ensure-icons.mjs renders them when dev,
+// start or build finds them missing or stale. To render them anyway, run this
+// in Electron, which is already here and draws SVG the way the app does:
 //
 //   pnpm --filter @fluid/desktop icons
 //
@@ -154,6 +158,18 @@ function withHighlights(svg) {
     )
 }
 
+/**
+ * "DEV" across the square, in the icon's ground colour so it reads against the
+ * square's light gradient. The square is 408px wide, centred on the canvas.
+ */
+function withDevLabel(svg, ground) {
+  return svg.replace(
+    '</svg>',
+    `<text x="512" y="512" fill="${ground}" font-family="'SF Pro Rounded', 'Helvetica Neue', Arial, sans-serif" font-size="145" font-weight="900" letter-spacing="4" text-anchor="middle" dominant-baseline="central">DEV</text>
+</svg>`
+  )
+}
+
 async function render(window, svg) {
   const src = `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`
   const page = `<body style="margin:0;background:transparent"><img src="${src}" width="${SIZE}" height="${SIZE}" style="display:block"></body>`
@@ -183,20 +199,22 @@ app.whenReady().then(async () => {
   })
 
   const reference = readFileSync(join(desktop, 'build/icon.svg'), 'utf8')
-  mkdirSync(join(desktop, 'resources/icons'), { recursive: true })
+  mkdirSync(join(desktop, 'resources/icons/dev'), { recursive: true })
 
-  writeFileSync(
-    join(desktop, 'resources/icon.png'),
-    await render(window, withHighlights(reference))
-  )
-  console.log('resources/icon.png')
-  for (const [theme, colors] of Object.entries(THEMES)) {
-    const out = `resources/icons/${theme}.png`
-    writeFileSync(
-      join(desktop, out),
-      await render(window, withHighlights(recolor(reference, theme, colors)))
-    )
+  const write = async (out, svg) => {
+    writeFileSync(join(desktop, out), await render(window, svg))
     console.log(out)
+  }
+
+  await write('resources/icon.png', withHighlights(reference))
+  await write('resources/icons/dev/default.png', withHighlights(withDevLabel(reference, 'black')))
+  for (const [theme, colors] of Object.entries(THEMES)) {
+    const themed = recolor(reference, theme, colors)
+    await write(`resources/icons/${theme}.png`, withHighlights(themed))
+    await write(
+      `resources/icons/dev/${theme}.png`,
+      withHighlights(withDevLabel(themed, hex(colors.ground)))
+    )
   }
 
   window.destroy()

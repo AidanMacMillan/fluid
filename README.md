@@ -1,4 +1,4 @@
-<img src="packages/desktop/resources/icon.png" alt="Fluid app icon" width="128" height="128">
+<img src="packages/desktop/build/icon.svg" alt="Fluid app icon" width="128" height="128">
 
 # Fluid
 
