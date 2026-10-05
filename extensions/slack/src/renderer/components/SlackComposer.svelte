@@ -383,7 +383,7 @@
         <li>
           <button
             type="button"
-            aria-selected={index === selected}
+            aria-current={index === selected}
             use:selectOnMouseMove={() => (selected = index)}
             onclick={() => accept(suggestion)}
             class="flex w-full items-center gap-2 rounded-md glass-control px-2 py-1.5 text-left"
