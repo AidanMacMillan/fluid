@@ -26,14 +26,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v6
-
-      - uses: actions/setup-node@v7
+      # Installs pnpm (from "packageManager"), Node (from .node-version), the
+      # pnpm store cache, and the dependencies.
+      - uses: pnpm/setup@v3
         with:
-          node-version: 24
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
+          cache: true
+          require-lockfile: true
 
       - name: Database migrations
         if: '!cancelled()'
@@ -62,19 +60,16 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v6
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: pnpm
-
+      # Before setup, because its install is what downloads Electron.
       - uses: actions/cache@v6
         with:
           path: ~/.cache/electron
           key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
-      - run: pnpm install --frozen-lockfile
+      - uses: pnpm/setup@v3
+        with:
+          cache: true
+          require-lockfile: true
 
       # Typechecking is the Check job's; this only proves the bundle builds.
       # The app icons are generated, not checked in, and the bundle imports
