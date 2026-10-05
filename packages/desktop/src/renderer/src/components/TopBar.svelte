@@ -1,6 +1,6 @@
 <script lang="ts">
   import { shortenPath } from '../lib/paths'
-  import { reorder } from '../lib/reorder.svelte'
+  import { moveInStrip, reorder } from '../lib/reorder.svelte'
   import { workspace } from '../lib/workspace.svelte'
   import IconButton from './IconButton.svelte'
   import TaskTab from './TaskTab.svelte'
@@ -18,21 +18,20 @@
   })
 
   /**
-   * The strip is two lists, pinned tasks and then the rest, and a drag stays in
-   * the one it started in: each is reordered on its own and written back with
-   * the pinned ones first (see `reorderTasks`).
+   * The strip is two lists, pinned tasks and then the rest, and a drag may be
+   * let go in either: the order is written back with the pinned ones first
+   * (see `reorderTasks`), and a task that crossed is pinned or unpinned first,
+   * which is what puts it on the other side of the boundary (see `setTaskPinned`).
    */
   const pinnedTasks = $derived(workspace.tasks.filter((task) => task.pinned))
   const unpinnedTasks = $derived(workspace.tasks.filter((task) => !task.pinned))
 
-  function onDrop(event: DragEvent): void {
-    const next = reorder.drop(event, 'task', unpinnedTasks)
-    if (next) void workspace.reorderTasks([...pinnedTasks, ...next].map((task) => task.id))
-  }
-
-  function onPinnedDrop(event: DragEvent): void {
-    const next = reorder.drop(event, 'pinned-task', pinnedTasks)
-    if (next) void workspace.reorderTasks([...next, ...unpinnedTasks].map((task) => task.id))
+  async function onDrop(event: DragEvent): Promise<void> {
+    const move = reorder.resolve(event, 'task')
+    const next = move && moveInStrip(pinnedTasks, unpinnedTasks, move)
+    if (!move || !next) return
+    if (next.crossed) await workspace.setTaskPinned(next.item.id, move.to.kind === 'pinned-task')
+    await workspace.reorderTasks([...next.pinned, ...next.unpinned].map((task) => task.id))
   }
 </script>
 
@@ -62,7 +61,7 @@
       class="flex min-w-0 flex-1 items-center gap-1"
       ondragover={(event) => reorder.overRest(event, 'task', unpinnedTasks.length)}
       ondragleave={(event) => reorder.leave(event)}
-      ondrop={onDrop}
+      ondrop={(event) => void onDrop(event)}
     >
       <!-- The strip asks for exactly the room its tabs want — one `--width-tab`
            each plus the gaps between them — and shrinks from there when the bar
@@ -80,18 +79,17 @@
           .tasks.length - 1} * var(--spacing))"
         class="flex min-w-0 shrink items-center gap-1 overflow-x-auto [&::-webkit-scrollbar]:hidden"
       >
-        <!-- Pinned tasks are a group of their own at the far left, which only
-             they can be dragged within. The wrapper claims a drag over the gaps
-             between them, as the outer span does for the unpinned ones; it is
-             exactly as wide as its tabs, so there is no ground past the last
-             one to resolve to the end. -->
+        <!-- Pinned tasks are a group of their own at the far left. The wrapper
+             claims a drag over the gaps between them, as the outer span does for
+             the unpinned ones; it is exactly as wide as its tabs, so there is no
+             ground past the last one to resolve to the end. The drop itself is
+             the outer span's, which this bubbles up to. -->
         {#if pinnedTasks.length > 0}
           <div
             role="presentation"
             class="flex shrink-0 items-center gap-1"
             ondragover={(event) => reorder.overGap(event, ['pinned-task'])}
             ondragleave={(event) => reorder.leave(event)}
-            ondrop={onPinnedDrop}
           >
             {#each pinnedTasks as task, index (task.id)}
               <TaskTab {task} {index} last={index === pinnedTasks.length - 1} />

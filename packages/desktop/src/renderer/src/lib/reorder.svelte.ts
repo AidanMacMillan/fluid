@@ -20,11 +20,11 @@
  * per kind, because it is not always the same answer for two rows of the same
  * list: a terminal has no address to be sent back to and so cannot be pinned,
  * and its drag says as much. The task strip is a scope of its own that nothing
- * crosses into or out of. The strip is in fact two of those: pinned tasks and
- * unpinned ones are lists of their own, each reordered only among itself, and
- * pinning is a menu choice rather than a drag.
+ * from the sidebar reorders into. It is two lists sharing that scope, pinned
+ * tasks and unpinned ones, the way the sidebar's sections do: a task let go
+ * among the other list's is pinned or unpinned by it (see `moveInStrip`).
  *
- * Nothing reorders across the two, but a tab can be handed to a task: let go on
+ * A tab can be handed to a task, which is not a reorder: let go on
  * one of the strip's tasks, it moves there (see `overTask`). That is not a slot
  * in a list, so it has none of the drop-line machinery — the task under the
  * pointer lights up whole, and the drop names the tab and nothing else. A
@@ -84,16 +84,17 @@ export type ReorderMove = {
  * drop — so the type is what answers "is this drag mine?" for a link dragged
  * in from a page, a file from Finder, or a task dragged over the tab list.
  *
- * The sidebar's two kinds deliberately share one type: they are two halves of a
- * single strip, and a type apiece would refuse at the platform's level the very
- * drop that moves a tab between them. Which of the two a drag may actually be
- * let go in is `into`'s to answer, per drag.
+ * The sidebar's two kinds deliberately share one type, and so do the task
+ * strip's: they are two halves of a single strip, and a type apiece would
+ * refuse at the platform's level the very drop that moves an item between them.
+ * Which of the two a drag may actually be let go in is `into`'s to answer, per
+ * drag.
  */
 const MIME: Record<ReorderKind, string> = {
   task: 'application/x-fluid-task',
-  // Its own type, so the platform itself refuses a pinned task over the
-  // unpinned ones and the other way about.
-  'pinned-task': 'application/x-fluid-pinned-task',
+  // The same type, as with the sidebar's: the platform must not refuse the drop
+  // that moves a task between the two.
+  'pinned-task': 'application/x-fluid-task',
   tab: 'application/x-fluid-tab',
   'pinned-tab': 'application/x-fluid-tab'
 }
@@ -578,6 +579,33 @@ export function moveTo<T>(items: readonly T[], from: number, to: number): T[] {
   const [item] = next.splice(from, 1)
   next.splice(to > from ? to - 1 : to, 0, item)
   return next
+}
+
+/**
+ * The task strip with one task moved to where a drag let go of it, as its two
+ * lists. The strip's counterpart to `moveTo`: the lists are separate, so the
+ * item is taken out of the one it started in and put in the one it landed in —
+ * and `pinned` says whether that changed which of the two it is in, which is
+ * what pins it or unpins it. Null when either end is not there any more.
+ */
+export function moveInStrip<T>(
+  pinned: readonly T[],
+  unpinned: readonly T[],
+  move: ReorderMove
+): { pinned: T[]; unpinned: T[]; item: T; crossed: boolean } | null {
+  const lists: Partial<Record<ReorderKind, T[]>> = {
+    'pinned-task': [...pinned],
+    task: [...unpinned]
+  }
+  const source = lists[move.from.kind]
+  const target = lists[move.to.kind]
+  if (!source || !target || move.from.index < 0 || move.from.index >= source.length) return null
+
+  const [item] = source.splice(move.from.index, 1)
+  const crossed = move.from.kind !== move.to.kind
+  const at = !crossed && move.to.index > move.from.index ? move.to.index - 1 : move.to.index
+  target.splice(at, 0, item)
+  return { pinned: lists['pinned-task']!, unpinned: lists.task!, item, crossed }
 }
 
 export const reorder = new Reorder()
