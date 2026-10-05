@@ -180,6 +180,10 @@
     right: auto;
     left: calc(1.5 * var(--spacing));
   }
+  .sidebar-hover-card.right :global(.sidebar-activity) {
+    right: auto;
+    left: calc(8 * var(--spacing));
+  }
   .sidebar-hover-card.right :global(.sidebar-folder-caret) {
     right: auto;
     left: calc(2.5 * var(--spacing));
