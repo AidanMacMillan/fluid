@@ -31,7 +31,9 @@ import type {
   FolderMenuOptions,
   SectionMenuChoice,
   TabMenuChoice,
-  TabMenuOptions
+  TabMenuOptions,
+  TaskMenuChoice,
+  TaskMenuOptions
 } from '../main/tab-menu'
 import type { TaskActionInfo, TaskActionResult } from '../main/task-actions'
 import type { TaskFocus } from '../main/notifications'
@@ -332,6 +334,9 @@ const api = {
      */
     tabMenu: (options: TabMenuOptions): Promise<TabMenuChoice | null> =>
       ipcRenderer.invoke('tabs:menu', options),
+    /** The same for a task's tab in the strip: pinning it and unpinning it. */
+    taskMenu: (options: TaskMenuOptions): Promise<TaskMenuChoice | null> =>
+      ipcRenderer.invoke('tasks:menu', options),
     /** The same for a folder's row in the sidebar. */
     folderMenu: (options: FolderMenuOptions): Promise<FolderMenuChoice | null> =>
       ipcRenderer.invoke('folders:menu', options),

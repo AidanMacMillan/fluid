@@ -578,6 +578,17 @@ class Workspace {
   }
 
   /**
+   * Pins a task to the front of the strip or unpins it. The write answers with
+   * the task, and the strip's new order arrives as an event (see `applyEvent`)
+   * — every position was renumbered, so only the main process can say where
+   * everything sits now.
+   */
+  async setTaskPinned(id: string, pinned: boolean): Promise<void> {
+    const updated = await fluid.tasks.setPinned({ id, pinned })
+    if (updated) this.replaceTask(updated)
+  }
+
+  /**
    * Takes tasks out of the strip, and moves the selection off them if it was on
    * one: to the neighbour on the right, then the left, the same rule the tab
    * strip inside a task follows. An empty strip is left empty.
@@ -1512,7 +1523,9 @@ class Workspace {
         if (!this.hasTask(task.id)) {
           // Reopened, most likely: back into the strip, in its place.
           if (task.status === 'open' && task.projectId === this.activeProjectId) {
-            this.tasks = [...this.tasks, task].sort((a, b) => a.position - b.position)
+            this.tasks = [...this.tasks, task].sort(
+              (a, b) => Number(b.pinned) - Number(a.pinned) || a.position - b.position
+            )
           }
           return
         }

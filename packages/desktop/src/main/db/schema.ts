@@ -247,6 +247,12 @@ export const tasks = pgTable(
      * a tab from here whenever the tab leaves the task (see `pruneSplits`).
      */
     splits: jsonb('splits').$type<TabSplit[]>().notNull().default([]),
+    /**
+     * Pinned tasks are drawn as their icon alone, ahead of every unpinned task.
+     * The strip sorts by this before `position`, so the two groups are ordered
+     * independently and a drag never carries a task from one into the other.
+     */
+    pinned: boolean('pinned').notNull().default(false),
     /** Order within the task strip. Not unique, for the reason given on `tabs.position`. */
     position: integer('position').notNull(),
     createdAt,

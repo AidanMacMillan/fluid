@@ -1,12 +1,13 @@
-import { and, asc, eq, inArray, max } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, max } from 'drizzle-orm'
 import { db } from './client'
 import type { TabSplit, TaskColor, TaskIcon } from '@fluid/sdk'
 import { type Task, type TaskFact, type TaskStatus, type TaskType, tasks } from './schema'
 
 /**
- * One project's tasks. The project is not optional: the strip shows a single
- * project's work at a time, so a list that spanned them all would be a strip
- * of everything the user has ever had open.
+ * One project's tasks, pinned ones first and each group in its own order. The
+ * project is not optional: the strip shows a single project's work at a time,
+ * so a list that spanned them all would be a strip of everything the user has
+ * ever had open.
  */
 export async function listTasks(projectId: string, status?: TaskStatus): Promise<Task[]> {
   return db()
@@ -17,7 +18,7 @@ export async function listTasks(projectId: string, status?: TaskStatus): Promise
         ? and(eq(tasks.projectId, projectId), eq(tasks.status, status))
         : eq(tasks.projectId, projectId)
     )
-    .orderBy(asc(tasks.position), asc(tasks.createdAt))
+    .orderBy(desc(tasks.pinned), asc(tasks.position), asc(tasks.createdAt))
 }
 
 export async function getTask(id: string): Promise<Task | undefined> {
@@ -100,7 +101,45 @@ export async function reorderTasks(orderedIds: string[]): Promise<Task[]> {
     .select()
     .from(tasks)
     .where(inArray(tasks.id, orderedIds))
-    .orderBy(asc(tasks.position), asc(tasks.createdAt))
+    .orderBy(desc(tasks.pinned), asc(tasks.position), asc(tasks.createdAt))
+}
+
+/**
+ * Pins or unpins a task, and puts it where it belongs: at the end of the
+ * pinned tasks when pinned, and at the start of the unpinned ones when not.
+ * Those are the same place in the strip — the boundary between the two groups —
+ * so the task stays put while it changes sides, and the rest of the open tasks
+ * are renumbered 0..n-1 around it.
+ *
+ * A settled task is not in the strip and only has its flag written.
+ */
+export async function setTaskPinned(id: string, pinned: boolean): Promise<Task | undefined> {
+  return db().transaction(async (tx) => {
+    const [task] = await tx.select().from(tasks).where(eq(tasks.id, id)).limit(1)
+    if (!task) return undefined
+    if (task.status !== 'open') {
+      const [settled] = await tx.update(tasks).set({ pinned }).where(eq(tasks.id, id)).returning()
+      return settled
+    }
+
+    const strip = await tx
+      .select()
+      .from(tasks)
+      .where(and(eq(tasks.projectId, task.projectId), eq(tasks.status, 'open')))
+      .orderBy(desc(tasks.pinned), asc(tasks.position), asc(tasks.createdAt))
+    const others = strip.filter((other) => other.id !== id)
+    const pinnedCount = others.filter((other) => other.pinned).length
+    const ordered = [...others.slice(0, pinnedCount), task, ...others.slice(pinnedCount)]
+
+    for (const [position, { id: taskId }] of ordered.entries()) {
+      await tx
+        .update(tasks)
+        .set(taskId === id ? { position, pinned } : { position })
+        .where(eq(tasks.id, taskId))
+    }
+    const [updated] = await tx.select().from(tasks).where(eq(tasks.id, id)).limit(1)
+    return updated
+  })
 }
 
 export async function updateTask(
@@ -112,6 +151,7 @@ export async function updateTask(
     status?: TaskStatus
     facts?: TaskFact[] | null
     splits?: TabSplit[]
+    pinned?: boolean
     position?: number
   }
 ): Promise<Task | undefined> {

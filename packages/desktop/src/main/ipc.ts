@@ -87,8 +87,10 @@ import {
   popupFolderMenu,
   popupSectionMenu,
   popupTabMenu,
+  popupTaskMenu,
   type FolderMenuOptions,
-  type TabMenuOptions
+  type TabMenuOptions,
+  type TaskMenuOptions
 } from './tab-menu'
 import { listTaskActions, runTaskAction } from './task-actions'
 import {
@@ -228,6 +230,10 @@ export function registerIpcHandlers(): void {
   // type offers. See src/main/tab-menu.ts.
   ipcMain.handle('tabs:menu', (event, options: TabMenuOptions) =>
     popupTabMenu(windowForSender(event.sender), options)
+  )
+  // A task's tab in the strip, for the same reason.
+  ipcMain.handle('tasks:menu', (event, options: TaskMenuOptions) =>
+    popupTaskMenu(windowForSender(event.sender), options)
   )
   // A folder's row, and the sidebar's empty ground, for the same reason.
   ipcMain.handle('folders:menu', (event, options: FolderMenuOptions) =>
