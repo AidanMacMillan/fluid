@@ -12,6 +12,7 @@
     needsSanitising,
     previewOf
   } from './lib/clipboard-entries'
+  import ShortcutBar from './components/ShortcutBar.svelte'
   import { sanitiseClipboardHtml } from './lib/clipboard-html'
   import { relativeTime } from './lib/time'
 
@@ -411,6 +412,15 @@
       {/each}
     </ul>
   {/if}
+
+  <ShortcutBar
+    hints={[
+      { keys: ['up', 'down'], label: 'Navigate' },
+      { keys: ['Enter'], label: 'Copy' },
+      { keys: ['mod', 'Backspace'], label: 'Forget' },
+      { keys: ['Esc'], label: 'Close' }
+    ]}
+  />
 </div>
 
 <style>

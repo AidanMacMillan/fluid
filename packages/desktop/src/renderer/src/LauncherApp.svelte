@@ -13,6 +13,7 @@
   } from '@fluid/sdk'
   import type { LauncherChoice, LauncherMode } from '../../main/launcher-window'
   import { INCOGNITO_PROFILE_ID } from '../../main/profiles'
+  import ShortcutBar from './components/ShortcutBar.svelte'
   import { fluid } from './lib/api'
   import { extensions } from './lib/extensions.svelte'
   import type { LauncherAction, LauncherOutcome, LauncherPrompt } from './lib/launcher-actions'
@@ -918,4 +919,13 @@
       {/each}
     </ul>
   {/if}
+
+  <ShortcutBar
+    hints={[
+      { keys: ['up', 'down'], label: 'Navigate' },
+      { keys: ['Enter'], label: 'Select' },
+      ...(asking ? [{ keys: ['Backspace'], label: 'Back' }] : []),
+      { keys: ['Esc'], label: 'Close' }
+    ]}
+  />
 </div>
