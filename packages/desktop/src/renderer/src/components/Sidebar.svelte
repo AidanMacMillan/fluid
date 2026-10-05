@@ -15,13 +15,11 @@
   const {
     compact = false,
     coveredId = null,
-    floating = false,
     onhover,
     ondismiss
   }: {
     compact?: boolean
     coveredId?: string | null
-    floating?: boolean
     onhover?: (item: SidebarHover | null) => void
     ondismiss?: () => void
   } = $props()
@@ -207,11 +205,7 @@
 
 <!-- No background of its own: the sidebar is a column of controls floating on
      the window's glass, separated from the content well by space alone. It
-     fills whatever the dock gives it — the width is the dock's to animate.
-
-     Docked, the trailing 4px is short of the leading 8px because the well's own
-     gap makes up the rest. The floating panel is a card with its own edge and
-     no well beside it, so there the two sides must match. -->
+     fills whatever the dock gives it — the width is the dock's to animate. -->
 <nav
   aria-label="Tabs in this task"
   class:icon-rail={compact}
@@ -219,9 +213,7 @@
   onpointerleave={() => compact && onhover?.(null)}
   onfocusin={hoverItem}
   onfocusout={() => compact && onhover?.(null)}
-  class="browser-chrome flex h-full w-full flex-col gap-1 py-2 pl-2 select-none {floating
-    ? 'pr-2'
-    : 'pr-1'}"
+  class="browser-chrome flex h-full w-full flex-col gap-1 px-2 py-2 select-none"
 >
   <!-- The head of the sidebar: what kind of work this is, and then which work.
        The type is named in words rather than left to its glyph because it is

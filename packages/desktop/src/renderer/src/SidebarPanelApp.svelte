@@ -135,7 +135,7 @@
       inert={!open}
     >
       <div class="sidebar-background h-full overflow-hidden rounded-xl glass-popover">
-        <Sidebar floating />
+        <Sidebar />
       </div>
       <ResizeHandle
         label="Resize sidebar"
