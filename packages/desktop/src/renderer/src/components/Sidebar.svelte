@@ -213,7 +213,7 @@
   onpointerleave={() => compact && onhover?.(null)}
   onfocusin={hoverItem}
   onfocusout={() => compact && onhover?.(null)}
-  class="browser-chrome flex h-full w-full flex-col gap-1 py-2 pr-1 pl-2 select-none"
+  class="browser-chrome flex h-full w-full flex-col gap-1 px-2 py-2 select-none"
 >
   <!-- The head of the sidebar: what kind of work this is, and then which work.
        The type is named in words rather than left to its glyph because it is
