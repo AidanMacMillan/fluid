@@ -213,7 +213,11 @@
     onclick={() => void workspace.selectTab(tab.id)}
     oncontextmenu={(event) => void openMenu(event)}
     class="relative flex h-9 w-full items-center gap-2 overflow-hidden rounded-lg glass-control
-           py-1 pr-7 pl-2 text-xs
+           py-1 pl-2 text-xs {activity && !compact
+      ? card
+        ? 'pr-10'
+        : 'pr-7 group-hover/row:pr-10'
+      : 'pr-7'}
            {selected
       ? 'text-ink-50'
       : alongside
@@ -363,14 +367,18 @@
     {/if}
   {/if}
 
-  <!-- In the close button's slot, after it so that it can give way to it: the
-       button only shows on hover or keyboard focus, and then has the slot. -->
-  {#if activity && !card}
+  <!-- Sits where the close button does until the button appears, then steps
+       aside to its left so both can be read. The hover card shows the button
+       all the time, so it wears the stepped-aside position outright; the rail
+       has no button, and perches on the icon's corner instead. -->
+  {#if activity}
     <span
-      class="pointer-events-none absolute top-1/2 right-3 size-2 -translate-y-1/2 rounded-full
+      class="pointer-events-none absolute top-1/2 size-2 -translate-y-1/2 rounded-full
              {compact
-        ? 'translate-x-1 -translate-y-3!'
-        : 'group-hover/row:opacity-0 peer-focus-visible/close:opacity-0'}
+        ? 'right-3 translate-x-1 -translate-y-3!'
+        : card
+          ? 'sidebar-activity right-8'
+          : 'sidebar-activity right-3 group-hover/row:right-8 peer-focus-visible/close:right-8'}
              {ACTIVITY_DOT[activity]}"
       aria-hidden="true"
     ></span>
