@@ -2,13 +2,24 @@
   "name": "fluid",
   "license": "MIT",
   "private": true,
+  "packageManager": "pnpm@12.4.2",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "dev": "pnpm --filter @fluid/desktop dev",
     "build": "pnpm --filter @fluid/desktop build",
+    "build:all": "pnpm --filter @fluid/desktop build:bundle",
     "start": "pnpm --filter @fluid/desktop start",
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint --cache .",
-    "format": "prettier --plugin prettier-plugin-svelte --write ."
+    "lint:ci": "eslint --max-warnings=0 .",
+    "format": "prettier --plugin prettier-plugin-svelte --write .",
+    "format:check": "prettier --plugin prettier-plugin-svelte --check .",
+    "db:verify": "pnpm --filter @fluid/desktop db:verify",
+    "test:unit": "pnpm --filter @fluid/desktop test:unit",
+    "test:electron": "pnpm --filter @fluid/desktop test:electron",
+    "ci:verify": "pnpm db:verify && pnpm test:unit && pnpm format:check && pnpm lint:ci && pnpm typecheck && pnpm build:all"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config-prettier": "^3.0.0",

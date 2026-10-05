@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  pull_request:
+  merge_group:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Nothing here launches Electron, so skip its ~100 MB binary download.
+  ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+
+jobs:
+  # Everything that only reads the source. Each step runs even if an earlier one
+  # failed, so one push shows every problem rather than the first.
+  check:
+    name: Check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Database migrations
+        if: '!cancelled()'
+        run: pnpm db:verify
+
+      - name: Unit tests
+        if: '!cancelled()'
+        run: pnpm test:unit
+
+      - name: Prettier
+        if: '!cancelled()'
+        run: pnpm format:check
+
+      - name: ESLint
+        if: '!cancelled()'
+        run: pnpm lint:ci
+
+      - name: Typecheck
+        if: '!cancelled()'
+        run: pnpm typecheck
+
+  build:
+    name: Build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Typechecking is the Check job's; this only proves the bundle builds.
+      - run: pnpm build:all
+
+  # The one status to require in the branch ruleset. Jobs can be added, split or
+  # renamed above without touching branch protection.
+  ci:
+    name: CI
+    needs: [check, build]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require every job to have passed
+        env:
+          RESULTS: ${{ toJSON(needs.*.result) }}
+        run: |
+          echo "$RESULTS"
+          if echo "$RESULTS" | grep -qE '"(failure|cancelled|skipped)"'; then exit 1; fi
