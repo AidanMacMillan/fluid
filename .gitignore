@@ -7,3 +7,5 @@ out
 *.tsbuildinfo
 out-test
 /packages/haptics/build/
+/packages/desktop/resources/icon.png
+/packages/desktop/resources/icons/

@@ -8,7 +8,9 @@
 // has a dev version, with "DEV" across the square, for runs from source — so
 // the dev app is never mistaken for an installed one.
 //
-// Runs in Electron, which is already here and draws SVG the way the app does:
+// The PNGs are not checked in: scripts/ensure-icons.mjs renders them when dev,
+// start or build finds them missing or stale. To render them anyway, run this
+// in Electron, which is already here and draws SVG the way the app does:
 //
 //   pnpm --filter @fluid/desktop icons
 //
