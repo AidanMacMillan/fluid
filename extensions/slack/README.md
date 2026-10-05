@@ -1,8 +1,9 @@
 # @fluid/extension-slack
 
 Slack thread tabs and the typed Slack client used by other extensions.
-Use the [shared development setup](../../packages/sdk/README.md#develop-a-built-in-extension);
-OAuth configuration and local server setup live in the [web app guide](../../packages/app/README.md).
+Use the [shared development setup](../../packages/sdk/README.md#develop-a-built-in-extension).
+Sign-in needs an OAuth server, which is not in this repository; the Cloudflare Worker that
+served it (`packages/app`) was removed and can be recovered from git history.
 
 ## Where to work
 

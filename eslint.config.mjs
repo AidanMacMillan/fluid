@@ -5,14 +5,7 @@ import eslintPluginSvelte from 'eslint-plugin-svelte'
 
 export default defineConfig(
   {
-    ignores: [
-      '**/node_modules',
-      '**/dist',
-      '**/out',
-      '**/out-test',
-      '**/.svelte-kit',
-      '**/.wrangler'
-    ]
+    ignores: ['**/node_modules', '**/dist', '**/out', '**/out-test']
   },
   tseslint.configs.recommended,
   eslintPluginSvelte.configs['flat/recommended'],
