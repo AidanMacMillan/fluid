@@ -326,6 +326,23 @@ const views = new Map<string, WebContentsView>()
 const pendingAudioMuted = new Set<string>()
 
 /**
+ * How long a tab keeps reporting itself audible after its sound stops. A short
+ * effect would otherwise show the mute control only while it plays, leaving no
+ * time to reach it.
+ */
+const AUDIBLE_LINGER_MS = 5000
+
+/** Tabs that were audible and went quiet within the linger window, with the timer that ends it. */
+const audibleLingers = new Map<string, ReturnType<typeof setTimeout>>()
+
+function clearAudibleLinger(tabId: string): void {
+  const timer = audibleLingers.get(tabId)
+  if (timer === undefined) return
+  clearTimeout(timer)
+  audibleLingers.delete(tabId)
+}
+
+/**
  * tab id → the browsing context its view was created in: which space, and which
  * profile within it. Held here rather than read back off the view because it is
  * needed for tabs whose view is gone, and because a partition string is not
@@ -866,8 +883,8 @@ function publish(tabId: string, view: WebContentsView): void {
     // `ShouldShowLoadingUI`, which Electron does not expose), and so does this:
     // loading means a new document is on its way into the main frame.
     loading: loadProgress.has(tabId),
-    audible: view.webContents.isCurrentlyAudible(),
-    audioMuted: view.webContents.isAudioMuted(),
+    audible: webContents.isCurrentlyAudible() || audibleLingers.has(tabId),
+    audioMuted: webContents.isAudioMuted(),
     progress: loadProgress.get(tabId) ?? null,
     canGoBack: navigationHistory.canGoBack(),
     canGoForward: navigationHistory.canGoForward(),
@@ -1399,7 +1416,22 @@ function createView(
   // Listed one by one because `on` is overloaded per event name and will not
   // take a union.
   const republish = (): void => publish(tabId, view)
-  webContents.on('audio-state-changed', republish)
+  webContents.on('audio-state-changed', () => {
+    if (webContents.isDestroyed()) return
+    if (webContents.isCurrentlyAudible()) {
+      clearAudibleLinger(tabId)
+    } else if (!audibleLingers.has(tabId)) {
+      // Sound just stopped: keep the tab reported as audible for a while.
+      audibleLingers.set(
+        tabId,
+        setTimeout(() => {
+          audibleLingers.delete(tabId)
+          if (views.get(tabId) === view) publish(tabId, view)
+        }, AUDIBLE_LINGER_MS)
+      )
+    }
+    republish()
+  })
   // A new document starting is the one moment the last failure stops being
   // true: the page area goes back to the live view, blank while it loads,
   // exactly as it does for a navigation that is going to succeed. Keyed off the
@@ -2324,6 +2356,7 @@ function contextInUse(context: BrowsingContext): boolean {
 /** Tears down the view for a closed tab. Its page is gone for good. */
 export function destroyBrowserView(tabId: string): void {
   pendingAudioMuted.delete(tabId)
+  clearAudibleLinger(tabId)
   // Whatever the next view is made from, it asks for afresh.
   forgetWebViewUrl(tabId)
   const view = views.get(tabId)
