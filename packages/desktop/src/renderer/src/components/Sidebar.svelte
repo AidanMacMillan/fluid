@@ -97,14 +97,16 @@
    * Whether the seam below the pinned section is standing in for that section.
    * Most tasks the user opens themselves have nothing pinned, and a section
    * with no rows has nothing to aim a drop at — so when it is empty the seam is
-   * the section, and a tab let go there is pinned.
+   * only the *mark* of the section: the line a pin would land on. The ground
+   * that takes the drop is everything above the new-tab row (see `overHead`),
+   * which is why the seam itself needs no room of its own.
    *
-   * The seam is in the layout either way, drawn or not. Nothing about a drag
-   * may change the size of anything in this column: a list that grew a row when
-   * a drag began would shift every row under the pointer, and the platform
-   * abandons a drag whose source is disturbed while the gesture is still being
-   * set up — which is to say the tabs that could be pinned would be the ones
-   * that could no longer be dragged.
+   * Nothing about a drag may change the size of anything in this column: a list
+   * that grew a row when a drag began would shift every row under the pointer,
+   * and the platform abandons a drag whose source is disturbed while the gesture
+   * is still being set up — which is to say the tabs that could be pinned would
+   * be the ones that could no longer be dragged. So an empty section takes no
+   * space at all, and a drag only ever paints it.
    */
   const seamIsSection = $derived(pinned.length === 0)
   /** Whether a drag that could be pinned is in flight, for the seam to say so. */
@@ -112,12 +114,19 @@
   /** Whether letting go now would land in the pinned section. */
   const aiming = $derived(reorder.target === 'pinned-tab' && reorder.moves)
 
+  /** The scroller, to tell which side of the lists a drag over bare ground is on. */
+  let scroller = $state<HTMLElement>()
+
   /**
    * A file dragged in from outside is about the sidebar as a whole rather than
    * either section — it becomes a tab, and a file tab cannot be pinned — so the
    * column answers it and the two lists never see it. The app's own drags are
    * reorders, which the lists answer for themselves; what is left for the
    * column is the ground between them.
+   *
+   * That ground is divided at the lists: everything above the new-tab row is
+   * the pinned section's, however little of it there is to see, and everything
+   * below it is the loose tabs'. A drag never has to find a sliver to land on.
    */
   function onDragOver(event: DragEvent): void {
     if (isFileDrag(event)) {
@@ -126,18 +135,50 @@
       receiving = true
       return
     }
-    // The column claims what its two lists do not: the seam between them, and
-    // the panel above them. Both are ground a drag from one section to the
-    // other passes over, and ground nothing claims is ground a drop is refused
-    // on (see `overGap`).
+    if (event.defaultPrevented) return
+    // The bare column itself — its padding, and the gaps between its parts. Which
+    // side of the lists it is on is a question of where the pointer is; beside
+    // them, in the side padding, it is on neither and the drag is left as it was.
+    if (event.target === event.currentTarget && scroller) {
+      const box = scroller.getBoundingClientRect()
+      if (event.clientY < box.top) return overHead(event)
+      if (event.clientY > box.bottom) return overFoot(event)
+    }
+    // The seam and the like: ground a drag from one section to the other passes
+    // over, and ground nothing claims is ground a drop is refused on (see
+    // `overGap`).
     reorder.overGap(event, ['pinned-tab', 'tab'])
   }
 
   /**
+   * The ground above the lists — the task's title, and the panel under it — is
+   * the start of the pinned section: the pointer is above its first row, so a
+   * drop is before it. With nothing pinned that is the section's only slot, and
+   * the seam draws it.
+   */
+  function overHead(event: DragEvent): void {
+    if (event.defaultPrevented) return
+    const first = pinnedRows[0]
+    reorder.aim(
+      event,
+      { section: 'pinned-tab', parentId: null, index: 0 },
+      first
+        ? { kind: 'line', rowId: first.id, edge: 'top', depth: 0 }
+        : { kind: 'end', section: 'pinned-tab' },
+      []
+    )
+  }
+
+  /** The ground below the lists is the end of the loose tabs, like the space under the last one. */
+  function overFoot(event: DragEvent): void {
+    reorder.overSectionEnd(event, 'tab', loose.length)
+  }
+
+  /**
    * Cleared when the pointer leaves the column rather than when it leaves one
-   * of the two lists: crossing the divider leaves a list every time, and a drop
-   * line that blinked out there would flicker exactly where a drag between the
-   * sections has to pass.
+   * of its parts: crossing from the title into a list, or from one list into the
+   * other, leaves something every time, and a drop line that blinked out there
+   * would flicker exactly where a drag between the sections has to pass.
    */
   function onDragLeave(event: DragEvent): void {
     if (hasLeft(event, event.currentTarget)) receiving = false
@@ -151,9 +192,8 @@
       void workspace.createFileTabs(filesFrom(event))
       return
     }
-    // A drop on the seam, or anywhere else in the column that is not a list.
-    // A list claims its own drops and this never sees them; what the pointer
-    // was last over is where the line was drawn, and so where this lands.
+    // Wherever in the column it was let go: what the pointer was last over is
+    // where the line was drawn, and so where this lands.
     if (event.defaultPrevented || !reorder.target) return
     onReorderDrop(event, reorder.target as SidebarSection)
   }
@@ -213,6 +253,9 @@
   onpointerleave={() => compact && onhover?.(null)}
   onfocusin={hoverItem}
   onfocusout={() => compact && onhover?.(null)}
+  ondragover={onDragOver}
+  ondragleave={onDragLeave}
+  ondrop={onDrop}
   class="browser-chrome flex h-full w-full flex-col gap-1 px-2 py-2 select-none"
 >
   <!-- The head of the sidebar: what kind of work this is, and then which work.
@@ -227,13 +270,15 @@
        enough to wrap spends more again: knowing what is being asked, and the
        whole of what it is about, are each worth more here than that alignment.
        -->
-  <!-- Above the pinned tabs, so a right-click on it is a right-click in the
-       pinned section: the one way to make a pinned folder in a task that has
-       nothing pinned yet, where the section itself is only a seam. -->
+  <!-- Above the pinned tabs, so it is the pinned section's ground: a right-click
+       on it is a right-click in that section — the one way to make a pinned
+       folder in a task that has nothing pinned yet — and a tab let go on it is
+       pinned. -->
   {#if !compact}
     <div
       class="flex flex-col gap-0.5 pt-1.5 pr-2 pb-1 pl-2"
       role="presentation"
+      ondragover={overHead}
       oncontextmenu={(event) => void openSectionMenu(event, true)}
     >
       {#if type}
@@ -279,11 +324,9 @@
     role="presentation"
     class="relative flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain drop-zone"
     class:receiving
+    bind:this={scroller}
     onscroll={() => compact && ondismiss?.()}
     ondragstart={() => compact && ondismiss?.()}
-    ondragover={onDragOver}
-    ondragleave={onDragLeave}
-    ondrop={onDrop}
   >
     <!-- Above the tabs because it is read before them: the panel says who is
          waiting and whose team they are on, and those are what decide whether
@@ -292,13 +335,16 @@
          task with a dozen loose tabs should be able to push all of this off the
          top the way any other list scrolls. -->
     {#if !compact && activeTaskId !== null && (facts.length > 0 || (actions?.actions.length ?? 0) > 0)}
-      <TaskFacts
-        {facts}
-        actions={actions?.actions ?? []}
-        running={actions?.running ?? null}
-        error={actions?.error ?? null}
-        onRun={(actionId) => void taskActions.run(activeTaskId, actionId)}
-      />
+      <!-- Ground of the pinned section, like the title above it. -->
+      <div role="presentation" ondragover={overHead}>
+        <TaskFacts
+          {facts}
+          actions={actions?.actions ?? []}
+          running={actions?.running ?? null}
+          error={actions?.error ?? null}
+          onRun={(actionId) => void taskActions.run(activeTaskId, actionId)}
+        />
+      </div>
     {/if}
 
     {#if pinned.length > 0}
@@ -308,7 +354,6 @@
         aria-label="Pinned tabs"
         class="flex shrink-0 flex-col gap-0.5"
         ondragover={(event) => reorder.overSectionEnd(event, 'pinned-tab', pinned.length)}
-        ondrop={(event) => onReorderDrop(event, 'pinned-tab')}
         oncontextmenu={(event) => void openSectionMenu(event, true)}
       >
         {#each pinnedRows as row, index (row.id)}
@@ -335,27 +380,19 @@
          a heading over each would say in two words what the line says by being
          there, in a column this narrow.
 
-         Always in the layout, and only sometimes drawn. With tabs above it, it
-         is the line that says where one section ends; with none, it is the
-         empty section itself — unpainted while nothing is happening, so that a
-         task with nothing pinned looks like a plain list, and painted the
-         moment a tab that could be pinned is picked up. What it never does is
-         change size, which is what keeps every row below it still while a drag
-         goes on above it.
-
-         A hairline is a one-pixel target, so while it stands in for the section
-         it takes its drop from a band either side of itself (see `pin-seam`) —
-         hit area only, again costing the layout nothing. -->
+         With tabs above it, it is the line that says where one section ends.
+         With none it is not in the layout at all: a task with nothing pinned
+         looks like a plain list, with the new-tab row straight under the title.
+         It is then only where a pin would land — painted while a tab that could
+         be pinned is in the air, and brighter when letting go would pin it, along
+         the top of the new-tab row. The drop itself is taken by everything above
+         that row (see `overHead`), so there is nothing here to aim at. -->
     <div
-      class="pin-seam relative mx-2 my-1.5 h-px shrink-0"
+      class="pin-seam relative shrink-0"
       class:empty={seamIsSection}
       class:offering={seamIsSection && offering}
       class:aiming={seamIsSection && aiming}
       aria-hidden="true"
-      ondragover={seamIsSection
-        ? (event) => reorder.overSectionEnd(event, 'pinned-tab', 0)
-        : undefined}
-      ondrop={seamIsSection ? (event) => onReorderDrop(event, 'pinned-tab') : undefined}
       oncontextmenu={(event) => void openSectionMenu(event, true)}
     ></div>
 
@@ -365,8 +402,7 @@
     <ul
       aria-label="Tabs"
       class="flex flex-1 flex-col gap-0.5"
-      ondragover={(event) => reorder.overSectionEnd(event, 'tab', loose.length)}
-      ondrop={(event) => onReorderDrop(event, 'tab')}
+      ondragover={overFoot}
       oncontextmenu={(event) => void openSectionMenu(event, false)}
     >
       <!-- Head of the list, and fixed there: the tabs below it come and go, and
@@ -435,7 +471,12 @@
        first thing its own panel says. Squares the width of their own glyphs,
        centred in the column rather than stretched across it — nothing about the
        row below the tabs is a list row. -->
-  <div class="flex shrink-0 items-center justify-center gap-1" class:flex-col={compact}>
+  <div
+    role="presentation"
+    class="flex shrink-0 items-center justify-center gap-1"
+    class:flex-col={compact}
+    ondragover={overFoot}
+  >
     <button
       type="button"
       onclick={() => window.api.clipboardWindow.open()}
