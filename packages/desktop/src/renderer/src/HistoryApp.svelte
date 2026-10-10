@@ -224,7 +224,7 @@
   <div
     use:keepSelectionInView
     aria-busy={loading}
-    class="history-scroll max-h-[27rem] overflow-y-auto overscroll-contain px-3 pb-3"
+    class="history-scroll max-h-[27rem] overflow-y-auto overflow-x-hidden overscroll-contain px-3 pb-3"
   >
     {#if !loading && entries.length === 0}
       <div class="flex flex-col items-center gap-2 px-4 py-10 text-center">

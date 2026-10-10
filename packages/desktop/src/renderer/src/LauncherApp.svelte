@@ -862,7 +862,7 @@
     <ul
       use:keepSelectionInView
       aria-label={mode === 'task' ? 'New task' : incognito ? 'Open in incognito' : 'Open'}
-      class="flex max-h-96 min-h-0 flex-col gap-0.5 overflow-y-auto p-1.5"
+      class="flex max-h-96 min-h-0 flex-col gap-0.5 overflow-y-auto overflow-x-hidden p-1.5"
     >
       {#each choices as choice, index (choice.key)}
         <!-- The seam between one band of the panel and the next, and the whole of

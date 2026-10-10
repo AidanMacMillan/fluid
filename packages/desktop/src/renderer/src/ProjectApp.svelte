@@ -687,7 +687,7 @@
     <ul
       use:keepSelectionInView
       aria-label="Projects"
-      class="flex max-h-96 flex-col gap-0.5 overflow-y-auto p-1.5"
+      class="flex max-h-96 flex-col gap-0.5 overflow-y-auto overflow-x-hidden p-1.5"
     >
       {#each matches as project, index (project.id)}
         <li>
@@ -797,7 +797,7 @@
     <ul
       use:keepSelectionInView
       aria-label="Spaces"
-      class="flex max-h-96 flex-col gap-0.5 overflow-y-auto p-1.5"
+      class="flex max-h-96 flex-col gap-0.5 overflow-y-auto overflow-x-hidden p-1.5"
     >
       {#each spaceMatches as space, index (space.id)}
         <li>
