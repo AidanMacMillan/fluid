@@ -1,9 +1,12 @@
 <script lang="ts">
   import {
+    analyseQuery,
     asksForInput,
     forTypedText,
     keepSelectionInView,
     launcherDetail,
+    matchScore,
+    scoreRow,
     selectOnMouseMove,
     type Bookmark,
     type LauncherAlternative,
@@ -17,7 +20,6 @@
   import { fluid } from './lib/api'
   import { extensions } from './lib/extensions.svelte'
   import type { LauncherAction, LauncherOutcome, LauncherPrompt } from './lib/launcher-actions'
-  import { matchesQuery } from './lib/search'
   import { displayUrl, isMultiline, looksLikeUrl, resolveInput, searchUrl } from './lib/urls'
 
   /**
@@ -43,6 +45,12 @@
    * or after the page or tab itself where there was not. And while the field
    * is empty the task panel leads with a row of its own, "New task", which is
    * what it opens on: Cmd+Shift+T and Enter is a blank task, with no tabs.
+   *
+   * Every row is scored for what is typed, from 0 to 1, and the list is drawn
+   * best first; a row that scores 0 is not drawn. Extensions' rows score
+   * themselves (see `Relevance` in the SDK) — a terminal knows a command when
+   * it sees one, and gives way to the row that runs it — and the panel's own
+   * rows are scored on the same scale here, with the search at its middle.
    */
 
   const api = window.api.launcher
@@ -90,10 +98,23 @@
     section: 'go' | 'do' | 'catalogue'
     /** What Enter does here: hand back a choice, or open a second step. */
     outcome: LauncherOutcome
+    /**
+     * How sure the panel is that this is what was typed for, from 0 to 1 (see
+     * relevance.ts in the SDK for the scale). Rows are drawn best first, and a
+     * row at 0 is not drawn. Left out, the middle of the scale: where the
+     * search sits, and every row while nothing is typed.
+     */
+    score?: number
   }
+
+  /** The middle of the scale, which a row with no score of its own is given. */
+  const MIDDLE = 0.5
 
   let query = $state('')
   const multiline = $derived(isMultiline(query))
+
+  /** What was typed, read once for every row to be scored against. */
+  const analysed = $derived(analyseQuery(query, { url: looksLikeUrl(query) }))
 
   /**
    * The question the panel is asking, or null while it is the search field it
@@ -266,7 +287,8 @@
           detail: '',
           icon: { kind: 'glyph', className: 'icon-[ph--plus]' },
           section: 'go',
-          outcome: { kind: 'choice', choice: { kind: 'task', task: {} } }
+          outcome: { kind: 'choice', choice: { kind: 'task', task: {} } },
+          score: 1
         }
       : null
   )
@@ -279,21 +301,27 @@
   $effect(() => fluid.watch('bookmarks.list', {}, (list) => (bookmarks = list)))
 
   /**
-   * The bookmarks worth showing for what has been typed so far. A catalogue
-   * marked search-only stays out of the way until something is typed — it is
-   * the reason the panel has to stay quiet when it opens, and the reason it can
-   * be long — and is matched on its label and keywords rather than its address:
-   * a catalogue's addresses tend to share everything but an id.
+   * The bookmarks worth showing for what has been typed so far, scored by how
+   * near it comes to their names. A catalogue marked search-only stays out of
+   * the way until something is typed — it is the reason the panel has to stay
+   * quiet when it opens, and the reason it can be long — and is matched on its
+   * label and keywords rather than its address: a catalogue's addresses tend
+   * to share everything but an id.
    */
   const matches = $derived(
     multiline
       ? []
-      : bookmarks.filter((bookmark) =>
-          bookmark.searchOnly
-            ? query.trim() !== '' &&
-              matchesQuery(query, [bookmark.label, ...(bookmark.keywords ?? [])])
-            : matchesQuery(query, [bookmark.label, bookmark.url, ...(bookmark.keywords ?? [])])
-        )
+      : bookmarks.flatMap((bookmark) => {
+          const score =
+            bookmark.searchOnly && analysed.empty
+              ? 0
+              : matchScore(analysed, {
+                  label: bookmark.label,
+                  detail: bookmark.searchOnly ? undefined : bookmark.url,
+                  keywords: bookmark.keywords
+                })
+          return score > 0 ? [{ bookmark, score }] : []
+        })
   )
 
   /**
@@ -313,21 +341,36 @@
   /** What an extension's entry is told about where the panel was opened. */
   const context = $derived<LauncherContext>({ projectRoot: root })
 
-  /** Each running extension's launcher entries. */
+  /**
+   * Each running extension's launcher entries, scored by their own rules or,
+   * without any, by how well what was typed matches their names.
+   */
   const actions = $derived(
     entries
       .filter(({ row }) => !multiline || row.supportsMultiline === true)
-      .filter(({ row }) =>
-        matchesQuery(query, [row.label, launcherDetail(row, context), ...(row.keywords ?? [])])
-      )
-      .map(({ row, key, prompt }): LauncherAction => ({
-        id: key,
-        label: row.label,
-        supportsMultiline: row.supportsMultiline === true,
-        detail: launcherDetail(row, context),
-        icon: row.icon,
-        outcome: prompt ? { kind: 'prompt', prompt: key } : { kind: 'extension-action', entry: key }
-      }))
+      .flatMap(({ row, key, prompt }): LauncherAction[] => {
+        const detail = launcherDetail(row, context)
+        const score = scoreRow(
+          row,
+          analysed,
+          context,
+          matchScore(analysed, { label: row.label, detail, keywords: row.keywords })
+        )
+        if (score === 0) return []
+        return [
+          {
+            id: key,
+            label: row.label,
+            supportsMultiline: row.supportsMultiline === true,
+            detail,
+            icon: row.icon,
+            outcome: prompt
+              ? { kind: 'prompt', prompt: key }
+              : { kind: 'extension-action', entry: key },
+            score
+          }
+        ]
+      })
   )
 
   /**
@@ -387,20 +430,33 @@
     ]
   })
 
+  /**
+   * Without a rule of its own, a row for typed text goes just under the
+   * search: offered for anything, and so sure of nothing.
+   */
+  const TYPED_SCORE = 0.4
+
   const forTyped = $derived.by<Choice[]>(() => {
     const text = query.trim()
     if (text === '') return []
     return typedEntries
       .filter(({ row }) => !multiline || row.supportsMultiline === true)
-      .map(({ key, row }) => ({
-        key: `typed:${key}`,
-        supportsMultiline: row.supportsMultiline === true,
-        label: text,
-        detail: row.label,
-        icon: { kind: 'glyph', className: row.icon },
-        section: 'go',
-        outcome: { kind: 'typed', entry: key, text }
-      }))
+      .flatMap(({ key, row }): Choice[] => {
+        const score = scoreRow(row, analysed, context, TYPED_SCORE)
+        if (score === 0) return []
+        return [
+          {
+            key: `typed:${key}`,
+            supportsMultiline: row.supportsMultiline === true,
+            label: text,
+            detail: row.label,
+            icon: { kind: 'glyph', className: row.icon },
+            section: 'go',
+            outcome: { kind: 'typed', entry: key, text },
+            score
+          }
+        ]
+      })
   })
 
   /**
@@ -429,7 +485,9 @@
         detail: launcherDetail(row, context),
         icon: { kind: 'glyph', className: row.icon },
         section: 'go',
-        outcome: { kind: 'extension', prompt: key, value }
+        outcome: { kind: 'extension', prompt: key, value },
+        // Recognised by the extension that owns it: as sure as the panel gets.
+        score: 1
       })
       // A recognised single-line link has one answer. Multiline text can
       // still be searched even when an extension recognises it.
@@ -450,7 +508,8 @@
           outcome: {
             kind: 'choice',
             choice: inMode({ kind: 'url', url, profile }, displayUrl(url))
-          }
+          },
+          score: 0.9
         }
       ]
     }
@@ -494,36 +553,41 @@
       detail: launcherDetail(found.row, context),
       icon: { kind: 'glyph', className: found.row.icon },
       section: 'go',
-      outcome: { kind: 'extension', prompt: found.key, value }
+      outcome: { kind: 'extension', prompt: found.key, value },
+      score: 1
     }
   })
 
   /**
-   * Everything on offer, in one list: what was typed, then what extensions
-   * offer for it, then the bookmarks, then
-   * the actions, then the catalogues. Flat rather than nested
-   * because the arrow keys walk the whole panel — a divider is a line drawn
-   * between two rows, not a border between lists you have to cross
-   * deliberately.
+   * Everything on offer, in one list, best first. Rows that score the same keep
+   * the order they always had — what was typed, then what extensions offer for
+   * it, then the bookmarks, then the actions — which is the whole of the order
+   * while nothing is typed and every row sits at the middle of the scale. The
+   * catalogues stay last whatever they score: they are the longest and least
+   * curated rows, and the rest should keep their place when they fill.
+   *
+   * Flat rather than nested because the arrow keys walk the whole panel — a
+   * divider is a line drawn between two rows, not a border between lists you
+   * have to cross deliberately.
    *
    * While a prompt is being asked it is that prompt's answer instead, and
    * nothing else. The same list in both panels: see `inMode` for what taking
    * a row makes of it.
    */
-  const choices = $derived.by<Choice[]>(() =>
-    prompt !== null
-      ? answered
-        ? [answered]
-        : []
-      : [
-          ...(blank ? [blank] : []),
-          ...typed,
-          ...forTyped,
-          ...matches.filter((bookmark) => !bookmark.searchOnly).map(bookmarkChoice),
-          ...actions.map(actionChoice),
-          ...matches.filter((bookmark) => bookmark.searchOnly).map(bookmarkChoice)
-        ]
-  )
+  const choices = $derived.by<Choice[]>(() => {
+    if (prompt !== null) return answered ? [answered] : []
+    const rows: Choice[] = [
+      ...(blank ? [blank] : []),
+      ...typed,
+      ...forTyped,
+      ...matches.filter(({ bookmark }) => !bookmark.searchOnly).map(bookmarkChoice),
+      ...actions.map(actionChoice),
+      ...matches.filter(({ bookmark }) => bookmark.searchOnly).map(bookmarkChoice)
+    ]
+    const last = (row: Choice): number => (row.section === 'catalogue' ? 1 : 0)
+    // `sort` is stable, so equal scores keep the order above.
+    return rows.sort((a, b) => last(a) - last(b) || (b.score ?? MIDDLE) - (a.score ?? MIDDLE))
+  })
 
   /**
    * What to say under the field when a prompt was given something it cannot
@@ -538,7 +602,7 @@
         : asking.rejection
   )
 
-  function bookmarkChoice(bookmark: Bookmark): Choice {
+  function bookmarkChoice({ bookmark, score }: { bookmark: Bookmark; score: number }): Choice {
     // A catalogue's rows go below the actions, in a section of their own, and
     // say where they come from rather than where they point: every one of them
     // is the same unreadable launch address with a different id on the end.
@@ -555,7 +619,8 @@
       outcome: {
         kind: 'choice',
         choice: inMode({ kind: 'url', url: bookmark.url, profile }, bookmark.label)
-      }
+      },
+      score
     }
   }
 
@@ -567,7 +632,8 @@
       detail: action.detail,
       icon: { kind: 'glyph', className: action.icon },
       section: 'do',
-      outcome: action.outcome
+      outcome: action.outcome,
+      score: action.score
     }
   }
 

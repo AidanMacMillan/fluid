@@ -57,4 +57,6 @@ export type LauncherAction = {
   outcome: LauncherOutcome
   /** Extra words that should find this row, beyond its label. */
   keywords?: string[]
+  /** How sure the row is that it is what was typed for (see `Relevance` in the SDK). */
+  score: number
 }
