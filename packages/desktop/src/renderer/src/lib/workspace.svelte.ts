@@ -48,6 +48,7 @@ import {
   type SplitDivider,
   type SplitEdge
 } from './splits'
+import { searchEngines } from './search-engine.svelte'
 import { originOf } from './urls'
 import { SIDEBAR_WIDTH, clampSidebarWidth } from '../../../shared/sidebar-width'
 export { SIDEBAR_WIDTH } from '../../../shared/sidebar-width'
@@ -61,9 +62,6 @@ export { NEW_TASK_TITLE }
  * rather than after the user has moved on.
  */
 const VIEW_STATE_WRITE_DELAY_MS = 250
-
-/** Where a new browser tab starts. No address bar yet, so this is the only way in. */
-export const DEFAULT_BROWSER_URL = 'https://www.google.com'
 
 const api = window.api
 
@@ -647,7 +645,7 @@ class Workspace {
    * which is what nearly every tab wants.
    */
   async createBrowserTab(
-    url: string = DEFAULT_BROWSER_URL,
+    url: string = searchEngines.current.homeUrl,
     profile: number | null = null
   ): Promise<void> {
     const taskId = await this.taskForNewTab()

@@ -22,6 +22,9 @@
 @source '../../../../../sdk/src';
 @source '../../../../../agent-core/src';
 
+/* And the search engine presets, which name their logos where they are listed. */
+@source '../../../shared';
+
 @theme {
   /* Default for windows outside the main browser. App supplies its shared native height. */
   --spacing-titlebar: 2.5rem;

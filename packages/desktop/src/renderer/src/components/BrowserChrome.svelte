@@ -5,6 +5,7 @@
   import type { Tab } from '../../../main/db/schema'
   import { profileById } from '../../../main/profiles'
   import { PROFILE_SWATCH } from '../lib/profile-colors'
+  import { searchEngines } from '../lib/search-engine.svelte'
   import { resolveInput } from '../lib/urls'
   import { workspace } from '../lib/workspace.svelte'
   import IconButton from './IconButton.svelte'
@@ -188,7 +189,7 @@
   })
 
   function commit(): void {
-    const target = resolveInput(draft)
+    const target = resolveInput(draft, searchEngines.current)
     if (target && isWebAddress(target)) {
       submitted = { tabId: tab.id, url: target, previousUrl: url, started: false }
     }
