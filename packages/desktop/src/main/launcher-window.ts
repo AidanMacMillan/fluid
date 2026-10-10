@@ -12,9 +12,8 @@ import type { NewTab, NewTaskTemplate } from '@fluid/sdk'
  * going in a keystroke.
  *
  * The same panel answers the question a level up, too: what a new task should
- * be (see `LauncherMode`). Blank, most of the time — which is why that is the
- * row it opens on — but an extension can offer kinds of task that start as
- * something, and this is where they are offered.
+ * be (see `LauncherMode`). It offers the same rows, each starting a task on
+ * what it would have opened; Enter before anything is typed starts a blank one.
  *
  * A window of its own for the same reason settings is one (see
  * src/main/settings-window.ts): browser tabs are native `WebContentsView`s
@@ -121,8 +120,9 @@ export type LauncherChoice =
    */
   | { kind: 'extension-alternative'; entry: string; alternative: string }
   /**
-   * A new task, from the task panel: blank, named, or what one of an
-   * extension's new-task entries described (see `NewTaskEntry` in the SDK).
+   * A new task, from the task panel: blank, open on what a row would have
+   * opened as a tab, or what one of an extension's new-task entries described
+   * (see `NewTaskEntry` in the SDK).
    * Which project it joins is the window's to say, like which task a tab does.
    */
   | { kind: 'task'; task: NewTaskTemplate }

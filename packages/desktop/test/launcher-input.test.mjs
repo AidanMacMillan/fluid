@@ -50,7 +50,7 @@ const wrapped = `export function createLauncher(dependencies) {
     get choices() { return choices },
     get guidance() { return guidance },
     get selected() { return selected },
-    setQuery(text) { query = text; selected = 0 },
+    setQuery(text) { query = text; selected = 0; moved = false },
     setField(element) { field = element },
     setBookmarks(list) { bookmarks = list },
     open, onKeydown
@@ -171,10 +171,68 @@ test('single-line behavior returns after removing the last newline', () => {
   assert.ok(launcher.choices.some((choice) => choice.key === 'typed:terminal.run'))
   assert.ok(launcher.choices.some((choice) => choice.key === 'bookmark:1'))
   assert.ok(launcher.choices.every((choice) => typeof choice.supportsMultiline === 'boolean'))
-  const task = setup('task').launcher
-  assert.equal(task.choices[0].key, 'blank')
-  task.setQuery('My task')
-  assert.equal(task.choices[0].key, 'named')
+})
+
+test('task and tab panels offer the same rows', () => {
+  for (const text of ['', 'example.com', 'plain words', 'exa']) {
+    const tab = setup('tab').launcher
+    const task = setup('task').launcher
+    tab.setQuery(text)
+    task.setQuery(text)
+    assert.deepEqual(
+      task.choices.map((choice) => choice.key).filter((key) => key !== 'blank'),
+      tab.choices.map((choice) => choice.key)
+    )
+  }
+})
+
+test('Enter on an empty field does nothing for a tab and starts a blank task for a task', () => {
+  const tab = setup('tab')
+  assert.equal(press(tab.launcher, 'Enter').defaultPrevented, true)
+  assert.equal(tab.sent.length, 0)
+
+  const task = setup('task')
+  assert.equal(task.launcher.choices[0].key, 'blank')
+  assert.equal(task.launcher.choices[0].label, 'New task')
+  assert.equal(task.launcher.selected, 0)
+  press(task.launcher, 'Enter')
+  assert.deepEqual(task.sent, [{ kind: 'task', task: {} }])
+
+  task.launcher.setQuery('words')
+  assert.equal(task.launcher.choices[0].key, 'search')
+  assert.equal(
+    task.launcher.choices.some((choice) => choice.key === 'blank'),
+    false
+  )
+})
+
+test('a row chosen with the arrow keys is taken even when the field is empty', async () => {
+  for (const mode of ['tab', 'task']) {
+    const { launcher, sent } = setup(mode)
+    press(launcher, 'ArrowDown')
+    if (mode === 'tab') press(launcher, 'ArrowUp')
+    press(launcher, 'Enter')
+    await new Promise((resolve) => setImmediate(resolve))
+    assert.equal(sent.length, 1)
+    if (mode === 'task') assert.equal(sent[0].task.tabs.length, 1)
+  }
+})
+
+test('task panel names the task after the row taken', async () => {
+  const { launcher, sent } = setup('task')
+  const take = async (key, text) => {
+    launcher.setQuery(text)
+    launcher.open(launcher.choices.find((choice) => choice.key === key))
+    await new Promise((resolve) => setImmediate(resolve))
+    return sent.at(-1).task
+  }
+  assert.equal((await take('search', 'plain words')).title, 'plain words')
+  assert.equal((await take('open', 'example.com')).title, urls.displayUrl('https://example.com'))
+  assert.equal((await take('bookmark:1', 'example')).title, 'example.com')
+  assert.equal((await take('typed:terminal.run', 'ls -la')).title, 'ls -la')
+  const shell = await take('action:terminal.shell', 'term')
+  assert.equal(shell.title, undefined)
+  assert.equal(shell.tabs[0].type, 'terminal.shell')
 })
 
 for (const mode of ['tab', 'task']) {

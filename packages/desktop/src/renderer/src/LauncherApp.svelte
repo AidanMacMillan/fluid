@@ -36,12 +36,13 @@
    * `LauncherEntry` in the SDK. An entry with nothing to ask opens its tab as
    * soon as it is taken, the way the app's own actions do.
    *
-   * The same panel asks what a new task should be (see `LauncherMode`). Then
-   * there are no places, only kinds of task: a blank one first — the row it
-   * opens on, so Cmd+Shift+T and Enter is a blank task, and once something is
-   * typed, a blank task with that for its name — then whatever extensions offer.
-   * A link is offered as a task open on it: as whichever extension's tab knows
-   * the link, and, for any address, as the page itself.
+   * The same panel asks what a new task should be (see `LauncherMode`), and
+   * offers the same rows — the difference is what taking one makes. A row's
+   * tab opens in a task of its own (see `inMode`), named after what was typed
+   * where there was something typed — the search, the address, the command —
+   * or after the page or tab itself where there was not. And while the field
+   * is empty the task panel leads with a row of its own, "New task", which is
+   * what it opens on: Cmd+Shift+T and Enter is a blank task, with no tabs.
    */
 
   const api = window.api.launcher
@@ -106,6 +107,33 @@
   // and the rows they add come and go with them.
   if (!incognito) extensions.start()
 
+  /** The first line of what was typed, which is all a task's name has room for. */
+  function firstLine(text: string): string {
+    return text.split(/[\r\n]/)[0]
+  }
+
+  /**
+   * What taking a row answers with, for the question this panel is asking. The
+   * new-tab panel hands back the page or tab as it is; the new-task panel wraps
+   * the same page or tab in a task of its own, called `title` (or, with none,
+   * left to the default — see `createTask`). Anything that is not a page or a
+   * tab is already an answer to a question about tasks.
+   */
+  function inMode(choice: LauncherChoice, title?: string): LauncherChoice {
+    if (mode !== 'task') return choice
+    if (choice.kind === 'url') {
+      const tab = { type: 'browser', title: null, payload: { url: choice.url } }
+      return { kind: 'task', task: { title, tabs: [tab] } }
+    }
+    if (choice.kind === 'extension-tab') {
+      return {
+        kind: 'task',
+        task: { title: title ?? choice.tab.title ?? undefined, tabs: [choice.tab] }
+      }
+    }
+    return choice
+  }
+
   /**
    * An extension's entry, whichever panel it is for. A new-tab entry answers
    * with a tab and a new-task entry with a task, but the rows, the prompts and
@@ -130,54 +158,16 @@
   /**
    * Every running extension's entries for this panel, but for the ones only offered for typed text.
    *
-   * The task panel also takes the new-tab panel's link entries — a pasted link
-   * to a thread, say — as tasks that open on that tab, for an extension that
-   * has not said what a task about one of its links should be. One that has
-   * said (a new-task entry with the same id) is left to say it.
+   * The task panel offers the same ones, each starting a task on the tab it
+   * would have opened. An extension that has something more specific to say
+   * about what the task is — a new-task entry with the same id, like a Slack
+   * thread named after what it says — is left to say it in that entry's place,
+   * and one with no tab of its own to offer is added after the rest.
    */
   const entries = $derived.by<Entry[]>(() => {
     if (incognito) return []
-    if (mode === 'task') {
-      const own: Entry[] = extensions.newTaskEntries().flatMap(({ extensionId, entry, host }) =>
-        forTypedText(entry)
-          ? []
-          : [
-              {
-                key: `${extensionId}.${entry.id}`,
-                row: entry,
-                prompt: entry.prompt ?? null,
-                parse: entry.parse ?? null,
-                alternatives: [],
-                take: async (value: unknown): Promise<LauncherChoice | null> => {
-                  const launcherHost = { ...host, launcher: context }
-                  const task = asksForInput(entry)
-                    ? await entry.open(value, launcherHost)
-                    : await entry.open(launcherHost)
-                  return task ? { kind: 'task', task } : null
-                }
-              }
-            ]
-      )
-      for (const { extensionId, entry, host } of extensions.launcherEntries()) {
-        const key = `${extensionId}.${entry.id}`
-        if (!asksForInput(entry) || own.some((found) => found.key === key)) continue
-        own.push({
-          key,
-          row: entry,
-          prompt: entry.prompt,
-          parse: entry.parse,
-          alternatives: [],
-          take: async (value) => {
-            const tab = await entry.open(value, { ...host, launcher: context })
-            const title = tab.title ?? undefined
-            return { kind: 'task', task: { title, tabs: [tab] } }
-          }
-        })
-      }
-      return own
-    }
 
-    return extensions.launcherEntries().flatMap(({ extensionId, entry, host }) =>
+    const own = extensions.launcherEntries().flatMap(({ extensionId, entry, host }): Entry[] =>
       forTypedText(entry)
         ? []
         : [
@@ -186,17 +176,43 @@
               row: entry,
               prompt: entry.prompt ?? null,
               parse: entry.parse ?? null,
-              alternatives: entry.alternatives ?? [],
+              alternatives: mode === 'task' ? [] : (entry.alternatives ?? []),
               take: async (value: unknown): Promise<LauncherChoice | null> => {
                 const launcherHost = { ...host, launcher: context }
                 const tab = asksForInput(entry)
                   ? await entry.open(value, launcherHost)
                   : await entry.open(launcherHost)
-                return tab ? { kind: 'extension-tab', tab } : null
+                return tab ? inMode({ kind: 'extension-tab', tab }) : null
               }
             }
           ]
     )
+    if (mode !== 'task') return own
+
+    const tasks = extensions.newTaskEntries().flatMap(({ extensionId, entry, host }): Entry[] =>
+      forTypedText(entry)
+        ? []
+        : [
+            {
+              key: `${extensionId}.${entry.id}`,
+              row: entry,
+              prompt: entry.prompt ?? null,
+              parse: entry.parse ?? null,
+              alternatives: [],
+              take: async (value: unknown): Promise<LauncherChoice | null> => {
+                const launcherHost = { ...host, launcher: context }
+                const task = asksForInput(entry)
+                  ? await entry.open(value, launcherHost)
+                  : await entry.open(launcherHost)
+                return task ? { kind: 'task', task } : null
+              }
+            }
+          ]
+    )
+    return [
+      ...own.map((found) => tasks.find(({ key }) => key === found.key) ?? found),
+      ...tasks.filter(({ key }) => !own.some((found) => found.key === key))
+    ]
   })
 
   /** The entries that ask for a line before they open anything. */
@@ -221,6 +237,41 @@
   let selected = $state(0)
 
   /**
+   * Whether the selection has been moved since the field was last typed in. The
+   * top row is highlighted from the start, but a row nobody chose is not an
+   * answer: Enter on a fresh new-tab panel opens nothing, not whatever happens
+   * to be first in the list. (The task panel's first row is a real one, "New
+   * task", so there the highlighted row is always an answer.)
+   */
+  let moved = $state(false)
+
+  /**
+   * Nothing has been asked of the panel yet: an empty field, not in a prompt,
+   * and no row chosen. The one state in which Enter does not take the
+   * highlighted row, and only the new-tab panel has it.
+   */
+  const idle = $derived(mode === 'tab' && prompt === null && query.trim() === '' && !moved)
+
+  /**
+   * The task panel's first row while nothing is typed, and the one it opens on:
+   * a task with no tabs in it. Gone as soon as there is text, when the first
+   * row is what that text produces.
+   */
+  const blank = $derived<Choice | null>(
+    mode === 'task' && query.trim() === ''
+      ? {
+          key: 'blank',
+          supportsMultiline: false,
+          label: 'New task',
+          detail: '',
+          icon: { kind: 'glyph', className: 'icon-[ph--plus]' },
+          section: 'go',
+          outcome: { kind: 'choice', choice: { kind: 'task', task: {} } }
+        }
+      : null
+  )
+
+  /**
    * Every bookmark there is: the user's own and whatever enabled extensions
    * supply, kept current while the panel is open.
    */
@@ -235,7 +286,7 @@
    * a catalogue's addresses tend to share everything but an id.
    */
   const matches = $derived(
-    mode === 'task' || multiline
+    multiline
       ? []
       : bookmarks.filter((bookmark) =>
           bookmark.searchOnly
@@ -262,16 +313,10 @@
   /** What an extension's entry is told about where the panel was opened. */
   const context = $derived<LauncherContext>({ projectRoot: root })
 
-  /**
-   * Each running extension's launcher entries. The task panel leaves out the
-   * ones that ask for a link: a task on a thread is started by pasting the
-   * thread, which `typed` recognises, and a standing row for it is noise next
-   * to the blank task.
-   */
+  /** Each running extension's launcher entries. */
   const actions = $derived(
     entries
       .filter(({ row }) => !multiline || row.supportsMultiline === true)
-      .filter(({ prompt }) => mode !== 'task' || prompt === null)
       .filter(({ row }) =>
         matchesQuery(query, [row.label, launcherDetail(row, context), ...(row.keywords ?? [])])
       )
@@ -286,42 +331,12 @@
   )
 
   /**
-   * The task panel's first row, and the one it opens on: a task with nothing in
-   * it yet. One row, not two, because a blank task and a named one are the same
-   * answer — so it is "Blank task" while the field is empty, and becomes a task
-   * called whatever has been typed once it is not, the way the new-tab panel's
-   * first row becomes a search.
-   */
-  const blank = $derived.by<Choice | null>(() => {
-    if (mode !== 'task' || multiline) return null
-    const text = query.trim()
-    return text === ''
-      ? {
-          key: 'blank',
-          supportsMultiline: false,
-          label: 'Blank task',
-          detail: '',
-          icon: { kind: 'glyph', className: 'icon-[ph--plus]' },
-          section: 'go',
-          outcome: { kind: 'choice', choice: { kind: 'task', task: {} } }
-        }
-      : {
-          key: 'named',
-          supportsMultiline: false,
-          label: text,
-          detail: '',
-          icon: { kind: 'glyph', className: 'icon-[ph--pencil-simple-line]' },
-          section: 'go',
-          outcome: { kind: 'choice', choice: { kind: 'task', task: { title: text } } }
-        }
-  })
-
-  /**
    * The rows either panel offers for what has been typed, just under the one
-   * the text itself produced — a blank task named after it, or a search (see
-   * `NewTaskTypedEntry` and `LauncherTypedEntry` in the SDK). Each reads as the
-   * text, with the entry's own name beside it, and `take` is where the two
-   * panels differ: one answers with a task, the other with a tab.
+   * the text itself produced — a search (see `NewTaskTypedEntry` and
+   * `LauncherTypedEntry` in the SDK). Each reads as the text, with the entry's
+   * own name beside it. The task panel starts a task named after the text on
+   * the tab the entry opens, unless a new-task entry with the same id has its
+   * own idea of the task.
    */
   type TypedEntry = {
     key: string
@@ -331,33 +346,45 @@
 
   const typedEntries = $derived.by<TypedEntry[]>(() => {
     if (incognito) return []
-    const found: TypedEntry[] = []
-    if (mode === 'task') {
-      for (const { extensionId, entry, host } of extensions.newTaskEntries()) {
-        if (!forTypedText(entry)) continue
-        found.push({
-          key: `${extensionId}.${entry.id}`,
-          row: entry,
-          take: async (text) => {
-            const task = await entry.open(text, { ...host, launcher: context })
-            return task ? { kind: 'task', task } : null
-          }
-        })
-      }
-    } else {
-      for (const { extensionId, entry, host } of extensions.launcherEntries()) {
-        if (!forTypedText(entry)) continue
-        found.push({
-          key: `${extensionId}.${entry.id}`,
-          row: entry,
-          take: async (text) => {
-            const tab = await entry.open(text, { ...host, launcher: context })
-            return tab ? { kind: 'extension-tab', tab } : null
-          }
-        })
-      }
-    }
-    return found
+
+    const own = extensions
+      .launcherEntries()
+      .flatMap(({ extensionId, entry, host }): TypedEntry[] =>
+        forTypedText(entry)
+          ? [
+              {
+                key: `${extensionId}.${entry.id}`,
+                row: entry,
+                take: async (text) => {
+                  const tab = await entry.open(text, { ...host, launcher: context })
+                  return tab ? inMode({ kind: 'extension-tab', tab }, firstLine(text)) : null
+                }
+              }
+            ]
+          : []
+      )
+    if (mode !== 'task') return own
+
+    const tasks = extensions
+      .newTaskEntries()
+      .flatMap(({ extensionId, entry, host }): TypedEntry[] =>
+        forTypedText(entry)
+          ? [
+              {
+                key: `${extensionId}.${entry.id}`,
+                row: entry,
+                take: async (text) => {
+                  const task = await entry.open(text, { ...host, launcher: context })
+                  return task ? { kind: 'task', task } : null
+                }
+              }
+            ]
+          : []
+      )
+    return [
+      ...own.map((found) => tasks.find(({ key }) => key === found.key) ?? found),
+      ...tasks.filter(({ key }) => !own.some((found) => found.key === key))
+    ]
   })
 
   const forTyped = $derived.by<Choice[]>(() => {
@@ -380,11 +407,8 @@
    * What typing into the field offers, above the bookmarks. An address goes
    * straight there; anything else is searched for, which is what the field does
    * by default and the reason Enter on a fresh panel needs nothing else.
-   *
-   * The task panel offers every way of starting a task on what was typed: each
-   * extension that recognises it, and then, for an address, a task open on
-   * that page. Enter takes the first, so a link an extension knows still opens
-   * as that extension's tab, and the page is one arrow key away.
+   * The task panel's rows are these same ones, taken as a task named after the
+   * text (see `inMode`).
    */
   const typed = $derived.by<Choice[]>(() => {
     const text = query.trim()
@@ -409,36 +433,7 @@
       })
       // A recognised single-line link has one answer. Multiline text can
       // still be searched even when an extension recognises it.
-      if (mode === 'tab' && !multiline) return recognised
-    }
-
-    if (mode === 'task' && !multiline) {
-      // Anything else typed is a name, which the first row already offers (see
-      // `blank`). Multiline text instead offers a task open on a search.
-      if (!looksLikeUrl(text)) return recognised
-      const url = resolveInput(text)
-      if (!url) return recognised
-      return [
-        ...recognised,
-        {
-          key: 'page',
-          supportsMultiline: false,
-          label: displayUrl(url),
-          detail: 'Web page',
-          icon: { kind: 'glyph', className: 'icon-[ph--arrow-square-out]' },
-          section: 'go',
-          outcome: {
-            kind: 'choice',
-            choice: {
-              kind: 'task',
-              task: {
-                title: displayUrl(url),
-                tabs: [{ type: 'browser', title: null, payload: { url } }]
-              }
-            }
-          }
-        }
-      ]
+      if (!multiline) return recognised
     }
 
     if (!multiline && looksLikeUrl(text)) {
@@ -452,7 +447,10 @@
           detail: '',
           icon: { kind: 'glyph', className: 'icon-[ph--arrow-square-out]' },
           section: 'go',
-          outcome: { kind: 'choice', choice: { kind: 'url', url, profile } }
+          outcome: {
+            kind: 'choice',
+            choice: inMode({ kind: 'url', url, profile }, displayUrl(url))
+          }
         }
       ]
     }
@@ -468,16 +466,7 @@
         section: 'go',
         outcome: {
           kind: 'choice',
-          choice:
-            mode === 'task'
-              ? {
-                  kind: 'task',
-                  task: {
-                    title: text.split(/[\r\n]/)[0],
-                    tabs: [{ type: 'browser', title: null, payload: { url: searchUrl(text) } }]
-                  }
-                }
-              : { kind: 'url', url: searchUrl(text), profile }
+          choice: inMode({ kind: 'url', url: searchUrl(text), profile }, firstLine(text))
         }
       }
     ]
@@ -518,9 +507,8 @@
    * deliberately.
    *
    * While a prompt is being asked it is that prompt's answer instead, and
-   * nothing else. The task panel has no bookmarks, so there it is whatever an
-   * extension recognised in what was typed, a page for an address, the blank or
-   * named task, and the extensions' kinds of task.
+   * nothing else. The same list in both panels: see `inMode` for what taking
+   * a row makes of it.
    */
   const choices = $derived.by<Choice[]>(() =>
     prompt !== null
@@ -528,8 +516,8 @@
         ? [answered]
         : []
       : [
-          ...typed,
           ...(blank ? [blank] : []),
+          ...typed,
           ...forTyped,
           ...matches.filter((bookmark) => !bookmark.searchOnly).map(bookmarkChoice),
           ...actions.map(actionChoice),
@@ -564,7 +552,10 @@
         ? { kind: 'favicon', src: bookmark.icon }
         : { kind: 'glyph', className: 'icon-[ph--bookmark-simple]' },
       section: catalogue ? 'catalogue' : 'go',
-      outcome: { kind: 'choice', choice: { kind: 'url', url: bookmark.url, profile } }
+      outcome: {
+        kind: 'choice',
+        choice: inMode({ kind: 'url', url: bookmark.url, profile }, bookmark.label)
+      }
     }
   }
 
@@ -611,6 +602,7 @@
       prompt = row.outcome.prompt
       query = ''
       selected = 0
+      moved = false
       // Whether the row was taken with Enter or with the pointer, what happens
       // next is typing — or, far more likely, pasting.
       field?.focus()
@@ -671,6 +663,7 @@
     prompt = null
     query = ''
     selected = 0
+    moved = false
     field?.focus()
   }
 
@@ -735,6 +728,8 @@
     if (event.key === 'Enter') {
       if (event.shiftKey) return
       event.preventDefault()
+      // A new tab has nothing to open until it is told.
+      if (idle) return
       open(choices[selected])
       return
     }
@@ -753,16 +748,18 @@
     if (event.key === 'ArrowDown') {
       event.preventDefault()
       selected = (selected + 1) % choices.length
+      moved = true
     } else if (event.key === 'ArrowUp') {
       event.preventDefault()
       selected = (selected - 1 + choices.length) % choices.length
+      moved = true
     }
   }
 
   /** What the field says it is for, while it is not asking something narrower. */
   const fieldLabel =
     mode === 'task'
-      ? 'Search or name a new task'
+      ? 'Search or enter address in a new task'
       : incognito
         ? 'Search or enter address in incognito'
         : 'Search or enter address'
@@ -834,7 +831,10 @@
       use:autofocus
       bind:this={field}
       bind:value={query}
-      oninput={() => (selected = 0)}
+      oninput={() => {
+        selected = 0
+        moved = false
+      }}
       spellcheck="false"
       autocomplete="off"
       autocapitalize="off"
@@ -879,7 +879,10 @@
           <button
             type="button"
             aria-current={index === selected}
-            use:selectOnMouseMove={() => (selected = index)}
+            use:selectOnMouseMove={() => {
+              selected = index
+              moved = true
+            }}
             onclick={() => open(choice)}
             oncontextmenu={(event) => pick(choice, event)}
             class="flex w-full items-center gap-2.5 rounded-lg glass-control px-2.5 py-2 text-left"
@@ -923,7 +926,7 @@
   <ShortcutBar
     hints={[
       { keys: ['up', 'down'], label: 'Navigate' },
-      { keys: ['Enter'], label: 'Select' },
+      ...(idle ? [] : [{ keys: ['Enter'], label: 'Select' }]),
       ...(asking ? [{ keys: ['Backspace'], label: 'Back' }] : []),
       { keys: ['Esc'], label: 'Close' }
     ]}

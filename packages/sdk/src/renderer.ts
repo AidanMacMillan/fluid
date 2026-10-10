@@ -203,7 +203,7 @@ export type LauncherEntry = LauncherPromptEntry | LauncherActionEntry | Launcher
 /**
  * The task a new-task entry starts: what it is called, what kind it is, and the
  * tabs it opens with. Every field is optional — an empty template is a blank
- * task, the same one the launcher's own first row makes. The task lands at the
+ * task, the same one Enter makes on the new-task panel before anything is typed. The task lands at the
  * end of the active project's strip and is selected, on its first tab.
  */
 export type NewTaskTemplate = {
@@ -245,10 +245,10 @@ export type NewTaskActionEntry = LauncherRow & {
 /**
  * A new-task row that is only there once something has been typed, and is
  * about whatever that is — a question to start a session with, say. Offered for
- * any text at all, just under the row that names a blank task after it, so it
- * is never what Enter takes by default. The row reads as what was typed, with
- * the entry's `label` for its detail, the way the new-tab panel's search row
- * reads as the query and "Search Google".
+ * any text at all, just under the row that searches for it, so it is never
+ * what Enter takes by default. The row reads as what was typed, with the
+ * entry's `label` for its detail, the way the search row reads as the query
+ * and "Search Google".
  */
 export type NewTaskTypedEntry = LauncherRow & {
   typed: true
@@ -260,7 +260,9 @@ export type NewTaskTypedEntry = LauncherRow & {
 
 /**
  * A kind of task the new-task panel offers (Cmd+Shift+T, and the plus at the
- * end of the task strip), below the blank task it always leads with.
+ * end of the task strip). The panel already offers every new-tab row as a task
+ * on that tab; an entry here is for an extension that knows better what the
+ * task should be, and takes the place of the new-tab entry with the same id.
  */
 export type NewTaskEntry = NewTaskPromptEntry | NewTaskActionEntry | NewTaskTypedEntry
 
