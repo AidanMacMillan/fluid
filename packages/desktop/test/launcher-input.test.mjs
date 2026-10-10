@@ -312,7 +312,11 @@ test('a bookmark row can be removed with its star; an extension’s cannot', () 
   assert.equal(star('bookmark:catalogue.x'), undefined)
 })
 
-const rightClick = () => ({ preventDefault() {} })
+const rightClick = () => ({
+  preventDefault() {
+    return undefined
+  }
+})
 const settle = () => new Promise((resolve) => setImmediate(resolve))
 
 test('right-clicking an open website offers to bookmark it, then the profile menu', async () => {
