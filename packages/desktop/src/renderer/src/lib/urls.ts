@@ -6,6 +6,11 @@
  * answer — an address is an address, and anything else is a search — so the
  * rule lives here rather than being written twice and drifting.
  */
+import {
+  DEFAULT_SEARCH_ENGINE,
+  searchAddress,
+  type SearchEngine
+} from '../../../shared/search-engine'
 
 /** A fully spelled-out address, whatever its scheme. Taken at its word. */
 const ABSOLUTE_URL = /^[a-z][a-z0-9+.-]*:\/\//i
@@ -21,8 +26,8 @@ const BARE_HOST =
 /** Loopback, which a dev server answers over plain http and not TLS. */
 const LOOPBACK = /^(localhost|127(?:\.\d{1,3}){3})(:\d+)?([/?#]|$)/i
 
-/** Where anything that is not an address goes. Same engine as `DEFAULT_BROWSER_URL`. */
-const SEARCH_URL = 'https://www.google.com/search?q='
+/** Anything that is not an address is searched for with this, unless the user has picked another. */
+const DEFAULT_ENGINE = DEFAULT_SEARCH_ENGINE
 
 /** Check before trimming: even a trailing line break makes this free text. */
 export function isMultiline(input: string): boolean {
@@ -36,9 +41,9 @@ export function looksLikeUrl(input: string): boolean {
   return ABSOLUTE_URL.test(text) || BARE_HOST.test(text)
 }
 
-/** A search for `query`, as the address that runs it. */
-export function searchUrl(query: string): string {
-  return `${SEARCH_URL}${encodeURIComponent(query.trim())}`
+/** A search for `query` on `engine`, as the address that runs it. */
+export function searchUrl(query: string, engine: SearchEngine = DEFAULT_ENGINE): string {
+  return searchAddress(engine, query)
 }
 
 /**
@@ -46,15 +51,15 @@ export function searchUrl(query: string): string {
  * is one, and a search for it when it is not. Null for an empty field, which is
  * nowhere to go.
  */
-export function resolveInput(input: string): string | null {
+export function resolveInput(input: string, engine: SearchEngine = DEFAULT_ENGINE): string | null {
   const text = input.trim()
   if (text === '') return null
-  if (isMultiline(input)) return searchUrl(text)
+  if (isMultiline(input)) return searchUrl(text, engine)
   if (ABSOLUTE_URL.test(text)) return text
   // https for the web, http for a dev server: `localhost:5173` over TLS is a
   // failed handshake, and it is the one address this app is typed at daily.
   if (BARE_HOST.test(text)) return `${LOOPBACK.test(text) ? 'http' : 'https'}://${text}`
-  return searchUrl(text)
+  return searchUrl(text, engine)
 }
 
 /**

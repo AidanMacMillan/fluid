@@ -1,6 +1,7 @@
 import { allSettings, deleteSetting, getSetting, setSetting } from '../db/settings'
 import { emit } from './bus'
 import { AD_BLOCKING_SETTING, adBlockingSettings } from '../../shared/ad-blocking'
+import { SEARCH_ENGINE_SETTING, searchEngineSetting } from '../../shared/search-engine'
 import {
   UI_DENSITY_SETTING,
   uiDensity,
@@ -14,6 +15,7 @@ export async function get(key: string): Promise<unknown> {
 
 export async function set(key: string, value: unknown): Promise<void> {
   if (key === AD_BLOCKING_SETTING) value = adBlockingSettings(value)
+  if (key === SEARCH_ENGINE_SETTING) value = searchEngineSetting(value)
   if (key === WINDOW_TRANSPARENCY_SETTING) value = windowTransparency(value)
   if (key === UI_DENSITY_SETTING) value = uiDensity(value)
   await setSetting(key, value)

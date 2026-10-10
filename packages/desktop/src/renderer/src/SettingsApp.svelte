@@ -5,6 +5,7 @@
   import AppearanceSettings from './components/AppearanceSettings.svelte'
   import AdBlockingSettings from './components/AdBlockingSettings.svelte'
   import GeneralSettings from './components/GeneralSettings.svelte'
+  import CustomSearchEngine from './components/CustomSearchEngine.svelte'
   import { extensions } from './lib/extensions.svelte'
 
   extensions.start()
@@ -50,6 +51,18 @@
   /** The section picked in the nav, or null for the one the panel opens on. */
   let chosen = $state<string | null>(null)
 
+  /**
+   * The custom search engine's page, when it is open. It takes the place of the
+   * General section until it is left, rather than opening over it, and leaving
+   * the section leaves it.
+   */
+  let customEngine = $state<{ id: string | null } | null>(null)
+
+  function choose(id: string): void {
+    chosen = id
+    customEngine = null
+  }
+
   const sections = $derived<Section[]>([...SECTIONS, ...extensionSections])
 
   /**
@@ -67,7 +80,7 @@
     window.api.shortcuts.onNavigate((navigation) => {
       if (navigation.kind !== 'tab-step' || !extensions.loaded) return
       const index = sections.findIndex((item) => item.id === current.id)
-      chosen = sections[(index + navigation.delta + sections.length) % sections.length].id
+      choose(sections[(index + navigation.delta + sections.length) % sections.length].id)
     })
   )
 </script>
@@ -138,7 +151,7 @@
     type="button"
     role="tab"
     aria-selected={current.id === item.id}
-    onclick={() => (chosen = item.id)}
+    onclick={() => choose(item.id)}
     class="flex w-full items-center gap-2.5 rounded-lg glass-control px-2.5 py-2 text-left"
   >
     <span
@@ -156,21 +169,35 @@
        nav already says which section is open, so a bar repeating it is a line of
        chrome held over content that needs the room. -->
   <section role="tabpanel" class="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4">
-    <h1 class="pb-3 text-xs font-semibold text-ink-200">{heading}</h1>
-
-    {#if current.id === 'extensions'}
-      <div class="flex flex-col gap-3">
-        <ExtensionInstaller />
-        {#each extensions.infos as extension (extension.id)}
-          <ExtensionRow {extension} />
-        {/each}
-      </div>
-    {:else if current.id === 'appearance'}
-      <AppearanceSettings />
-    {:else if current.id === 'ad-blocking'}
-      <AdBlockingSettings />
-    {:else if current.id === 'general'}
-      <GeneralSettings />
+    {#if current.id === 'general' && customEngine}
+      <button
+        type="button"
+        onclick={() => (customEngine = null)}
+        class="mb-2 -ml-1.5 flex items-center gap-1 rounded-md glass-control px-1.5 py-1 text-xs text-ink-400 hover:text-ink-100"
+      >
+        <span class="icon-[ph--caret-left] text-sm" aria-hidden="true"></span>
+        Back
+      </button>
+      <h1 class="pb-3 text-xs font-semibold text-ink-200">
+        {customEngine.id === null ? 'Add custom search engine' : 'Edit custom search engine'}
+      </h1>
+      <CustomSearchEngine id={customEngine.id} done={() => (customEngine = null)} />
+    {:else}
+      <h1 class="pb-3 text-xs font-semibold text-ink-200">{heading}</h1>
+      {#if current.id === 'extensions'}
+        <div class="flex flex-col gap-3">
+          <ExtensionInstaller />
+          {#each extensions.infos as extension (extension.id)}
+            <ExtensionRow {extension} />
+          {/each}
+        </div>
+      {:else if current.id === 'appearance'}
+        <AppearanceSettings />
+      {:else if current.id === 'ad-blocking'}
+        <AdBlockingSettings />
+      {:else if current.id === 'general'}
+        <GeneralSettings onCustomEngine={(id) => (customEngine = { id })} />
+      {/if}
     {/if}
   </section>
 {/snippet}

@@ -17,7 +17,10 @@ function load(path, dependencies = {}) {
 }
 
 const sdk = { ...load('../../sdk/src/renderer.ts'), ...load('../../sdk/src/relevance.ts') }
-const urls = load('../src/renderer/src/lib/urls.ts')
+const searchEngine = load('../src/shared/search-engine.ts')
+const urls = load('../src/renderer/src/lib/urls.ts', {
+  '../../../shared/search-engine': searchEngine
+})
 const search = load('../src/renderer/src/lib/search.ts')
 const { createAgentRenderer } = load('../../agent-core/src/renderer/index.ts', {
   '@fluid/sdk': sdk
@@ -44,7 +47,7 @@ const body = ast.statements
 const wrapped = `export function createLauncher(dependencies) {
   const { window, location, document, extensions, asksForInput, forTypedText,
     launcherDetail, analyseQuery, matchScore, scoreRow, displayUrl, isMultiline, looksLikeUrl, resolveInput, searchUrl,
-    matchesQuery, INCOGNITO_PROFILE_ID } = dependencies;
+    matchesQuery, searchEngines, INCOGNITO_PROFILE_ID } = dependencies;
   const ignoreEffect = () => {};
   ${body}
   return {
@@ -102,6 +105,7 @@ function setup(mode = 'tab', extra = []) {
       launcherEntries: () => entries('launcher'),
       newTaskEntries: () => entries('newTask')
     },
+    searchEngines: { current: searchEngine.DEFAULT_SEARCH_ENGINE },
     INCOGNITO_PROFILE_ID: -1
   })
   launcher.setField(field)

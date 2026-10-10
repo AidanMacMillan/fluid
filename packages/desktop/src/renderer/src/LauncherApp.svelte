@@ -20,6 +20,7 @@
   import { fluid } from './lib/api'
   import { extensions } from './lib/extensions.svelte'
   import type { LauncherAction, LauncherOutcome, LauncherPrompt } from './lib/launcher-actions'
+  import { searchEngines } from './lib/search-engine.svelte'
   import { displayUrl, isMultiline, looksLikeUrl, resolveInput, searchUrl } from './lib/urls'
 
   /**
@@ -495,7 +496,7 @@
     }
 
     if (!multiline && looksLikeUrl(text)) {
-      const url = resolveInput(text)
+      const url = resolveInput(text, searchEngines.current)
       if (!url) return []
       return [
         {
@@ -520,12 +521,15 @@
         key: 'search',
         supportsMultiline: true,
         label: text,
-        detail: 'Search Google',
+        detail: `Search ${searchEngines.current.name}`,
         icon: { kind: 'glyph', className: 'icon-[ph--magnifying-glass]' },
         section: 'go',
         outcome: {
           kind: 'choice',
-          choice: inMode({ kind: 'url', url: searchUrl(text), profile }, firstLine(text))
+          choice: inMode(
+            { kind: 'url', url: searchUrl(text, searchEngines.current), profile },
+            firstLine(text)
+          )
         }
       }
     ]
@@ -928,7 +932,7 @@
     <ul
       use:keepSelectionInView
       aria-label={mode === 'task' ? 'New task' : incognito ? 'Open in incognito' : 'Open'}
-      class="flex max-h-96 min-h-0 flex-col gap-0.5 overflow-y-auto overflow-x-hidden p-1.5"
+      class="flex max-h-96 min-h-0 flex-col gap-0.5 overflow-x-hidden overflow-y-auto p-1.5"
     >
       {#each choices as choice, index (choice.key)}
         <!-- The seam between one band of the panel and the next, and the whole of

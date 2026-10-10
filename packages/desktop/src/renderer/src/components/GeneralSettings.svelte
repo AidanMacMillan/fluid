@@ -1,5 +1,8 @@
 <script lang="ts">
   import { reasonFrom } from '../lib/ipc-error'
+  import SearchEngineSettings from './SearchEngineSettings.svelte'
+
+  let { onCustomEngine }: { onCustomEngine: (id: string | null) => void } = $props()
 
   type Status = Awaited<ReturnType<typeof window.api.defaultBrowser.status>>
 
@@ -38,6 +41,7 @@
 </script>
 
 <div class="flex flex-col gap-5 text-xs">
+  <SearchEngineSettings onCustom={onCustomEngine} />
   <div class="flex items-start gap-3 rounded-lg bg-white/5 p-3">
     <span class="min-w-0 flex-1">
       <span class="block font-medium text-ink-100">Default browser</span>
