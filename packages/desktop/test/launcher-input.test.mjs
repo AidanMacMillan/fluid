@@ -59,6 +59,10 @@ const wrapped = `export function createLauncher(dependencies) {
     setBookmarks(list) { bookmarks = list },
     toggleBookmark,
     attachIcon,
+    pick,
+    startRename,
+    endRename,
+    get renaming() { return renaming },
     open, onKeydown
   };
 }`
@@ -78,6 +82,10 @@ after(() => rmSync(directory, { recursive: true, force: true }))
 function setup(mode = 'tab', extra = []) {
   const sent = []
   const bookmarkCalls = []
+  const menus = []
+  const profileMenus = []
+  const editingCalls = []
+  let menuAnswer = null
   const agent = createAgentRenderer({ id: 'agent', name: 'Agent', icon: 'agent-icon' })
   const host = {
     api: { projects: { workingDirectory: async () => '/project' } },
@@ -100,7 +108,15 @@ function setup(mode = 'tab', extra = []) {
     ...search,
     window: {
       api: {
-        launcher: { submit: (choice) => sent.push(choice) },
+        launcher: {
+          submit: (choice) => sent.push(choice),
+          rowMenu: async (items, url) => {
+            menus.push({ items, url })
+            return menuAnswer
+          },
+          openInProfile: (url) => profileMenus.push(url),
+          setEditing: (value) => editingCalls.push(value)
+        },
         browser: { siteIcon: async (url) => `data:image/png;base64,icon-of-${new URL(url).host}` }
       }
     },
@@ -130,7 +146,16 @@ function setup(mode = 'tab', extra = []) {
   launcher.setBookmarks([
     { id: 1, label: 'example.com', url: 'https://example.com', source: { kind: 'user' } }
   ])
-  return { launcher, sent, field, bookmarkCalls }
+  return {
+    launcher,
+    sent,
+    field,
+    bookmarkCalls,
+    menus,
+    profileMenus,
+    editingCalls,
+    answerMenuWith: (id) => (menuAnswer = id)
+  }
 }
 
 function press(launcher, key, options = {}) {
@@ -285,6 +310,118 @@ test('a bookmark row can be removed with its star; an extension’s cannot', () 
   const star = (key) => launcher.choices.find((choice) => choice.key === key).bookmarkUrl
   assert.equal(star('bookmark:u1'), 'https://mine.example.com')
   assert.equal(star('bookmark:catalogue.x'), undefined)
+})
+
+const rightClick = () => ({ preventDefault() {} })
+const settle = () => new Promise((resolve) => setImmediate(resolve))
+
+test('right-clicking an open website offers to bookmark it, then the profile menu', async () => {
+  const { launcher, menus, bookmarkCalls, answerMenuWith } = setup()
+  launcher.setQuery('https://news.example.org/today')
+  const row = launcher.choices.find((choice) => choice.key === 'open')
+  answerMenuWith('bookmark')
+  launcher.pick(row, rightClick())
+  await settle()
+  assert.deepEqual(menus, [
+    {
+      items: [{ id: 'bookmark', label: 'Bookmark This Site' }],
+      url: 'https://news.example.org/today'
+    }
+  ])
+  assert.equal(bookmarkCalls[0][0], 'create')
+})
+
+test('right-clicking a bookmark offers rename and remove', async () => {
+  const { launcher, menus, bookmarkCalls, answerMenuWith } = setup()
+  launcher.setQuery('exa')
+  const row = launcher.choices.find((choice) => choice.key === 'bookmark:1')
+  assert.equal(row.bookmarkId, 1)
+
+  answerMenuWith('remove')
+  launcher.pick(row, rightClick())
+  await settle()
+  assert.deepEqual(
+    menus[0].items.map((item) => item.id),
+    ['rename', 'remove']
+  )
+  assert.deepEqual(bookmarkCalls, [['delete', { id: 1 }]])
+})
+
+test('right-clicking a bookmark with nothing chosen changes nothing', async () => {
+  const { launcher, bookmarkCalls } = setup()
+  launcher.setQuery('exa')
+  launcher.pick(
+    launcher.choices.find((choice) => choice.key === 'bookmark:1'),
+    rightClick()
+  )
+  await settle()
+  assert.deepEqual(bookmarkCalls, [])
+  assert.equal(launcher.renaming, null)
+})
+
+test('an extension’s bookmark gets only the profile menu when right-clicked', async () => {
+  const { launcher, menus, profileMenus } = setup()
+  launcher.setBookmarks([
+    {
+      id: 'catalogue.x',
+      label: 'x',
+      url: 'https://x.example.com',
+      source: { kind: 'extension', extensionId: 'catalogue' }
+    }
+  ])
+  launcher.setQuery('x.example')
+  launcher.pick(
+    launcher.choices.find((choice) => choice.key === 'bookmark:catalogue.x'),
+    rightClick()
+  )
+  await settle()
+  assert.deepEqual(menus, [])
+  assert.deepEqual(profileMenus, ['https://x.example.com'])
+})
+
+test('incognito has no row menu', async () => {
+  const { launcher, menus, profileMenus } = setup('incognito')
+  launcher.setQuery('https://other.example.net')
+  launcher.pick(
+    launcher.choices.find((choice) => choice.key === 'open'),
+    rightClick()
+  )
+  await settle()
+  assert.deepEqual([menus, profileMenus], [[], []])
+})
+
+test('renaming a bookmark keeps the new name, and the keys are the field’s meanwhile', async () => {
+  const { launcher, sent, bookmarkCalls, editingCalls, answerMenuWith } = setup()
+  launcher.setQuery('exa')
+  const row = launcher.choices.find((choice) => choice.key === 'bookmark:1')
+  answerMenuWith('rename')
+  launcher.pick(row, rightClick())
+  await settle()
+  assert.deepEqual(launcher.renaming, { id: 1, value: 'example.com' })
+
+  // Enter belongs to the name being edited, not to the row under it.
+  press(launcher, 'Enter')
+  assert.equal(sent.length, 0)
+
+  launcher.renaming.value = '  Example  '
+  launcher.endRename(true)
+  assert.equal(launcher.renaming, null)
+  assert.deepEqual(bookmarkCalls, [['update', { id: 1, label: 'Example' }]])
+  assert.deepEqual(editingCalls, [true, false])
+})
+
+test('a rename dropped, emptied or left as it was changes nothing', () => {
+  const { launcher, bookmarkCalls } = setup()
+  for (const [value, keep] of [
+    ['Other', false],
+    ['   ', true],
+    ['example.com', true]
+  ]) {
+    launcher.startRename(1, 'example.com')
+    launcher.renaming.value = value
+    launcher.endRename(keep)
+  }
+  assert.deepEqual(bookmarkCalls, [])
 })
 
 test('a bookmark without an icon is given the site’s, once', async () => {

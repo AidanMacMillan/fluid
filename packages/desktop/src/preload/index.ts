@@ -579,6 +579,16 @@ const api = {
      */
     chooseAlternative: (entry: string, alternatives: LauncherMenuItem[]): void =>
       ipcRenderer.send('launcher:chooseAlternative', entry, alternatives),
+    /**
+     * From the panel: a website row's menu — the given items, then which profile
+     * to open it in. Answers the id of the item taken, or null for none (and for
+     * a profile, which the main process opens itself). The panel is held open
+     * while it is up, so unlike the two above this one hears back.
+     */
+    rowMenu: (items: LauncherMenuItem[], url: string | null): Promise<string | null> =>
+      ipcRenderer.invoke('launcher:rowMenu', items, url),
+    /** From the panel: a row's name is being edited in place, so Escape cancels the edit, not the panel. */
+    setEditing: (editing: boolean): void => ipcRenderer.send('launcher:editing', editing),
     /** From the panel: how tall it actually drew, so the window can match it. */
     resize: (height: number): void => ipcRenderer.send('launcher:resize', height),
     /**
