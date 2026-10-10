@@ -133,7 +133,7 @@
      would leave the strip collapsed to the titles and never be reached. -->
 <div
   role="presentation"
-  class="group/tab relative press-scale {task.pinned
+  class="group/tab relative press-scale hover-through {task.pinned
     ? 'w-(--width-tab-pinned) shrink-0'
     : 'min-w-24 shrink grow basis-0'} {dragging ? 'opacity-40' : ''}"
   oncontextmenu={openMenu}
