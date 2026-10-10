@@ -281,7 +281,7 @@ function developerItems(
     {
       label: 'Inspect',
       click: () => {
-        webContents.openDevTools({ mode: 'detach' })
+        webContents.openDevTools({ mode: 'right' })
         webContents.inspectElement(params.x, params.y)
       }
     }
