@@ -915,7 +915,7 @@ function publish(tabId: string, view: WebContentsView): void {
  * This event, and not the navigation, is what makes a tab's icon stale.
  * Chromium announces a document's icons only when the set differs from the one
  * it last announced for this tab, so a site whose every page advertises the
- * same icon — GitHub, Gmail, Okta — fires this once and then stays silent for
+ * same icon — GitHub, Gmail — fires this once and then stays silent for
  * as long as the tab remains on it. An icon dropped on navigation instead
  * would therefore never come back: no second event is coming to replace it.
  */
@@ -971,7 +971,7 @@ async function adoptFavicon(tabId: string, view: WebContentsView, urls: string[]
  *   its opener means to write into. All of that needs a live `window.opener`,
  *   which a tab does not have. Those stay windows.
  * - Everything else is ordinary navigation that asked to land somewhere else —
- *   an Okta dashboard tile, a link set to open in a new tab — and it becomes a
+ *   a dashboard tile, a link set to open in a new tab — and it becomes a
  *   tab here. These used to go to the user's real browser, which dropped them
  *   into a profile holding none of the session they had just signed in to.
  */

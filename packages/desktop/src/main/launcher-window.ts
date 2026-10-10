@@ -54,15 +54,15 @@ const PARENT_FRACTION = 0.6
 const WIDTH = { min: 420, max: 640 } as const
 
 /**
- * The panel's height while nothing has been typed: the field, and every
- * bookmark under it. The renderer measures what it actually drew and says so
+ * The panel's height while nothing has been typed: the field, and the actions
+ * under it (bookmarks wait until something is typed). The renderer measures what it actually drew and says so
  * (see `resizeLauncherWindow`), so this is only what the window opens at — but
  * it is what the window opens at *before the first paint*, so it is worth being
- * close: the field is 49px with its rule, and each bookmark row 32px in a list
- * padded by 6. Out by a little for one frame is invisible; out by a lot is a
+ * close: the field is 49px with its rule, each row 32px in a list padded by 6,
+ * and the shortcut bar under it. Out by a little for one frame is invisible; out by a lot is a
  * panel that visibly settles the moment it appears.
  */
-const OPENING_HEIGHT = 160
+const OPENING_HEIGHT = 330
 
 /**
  * The tallest the panel may get. The list is short and fixed today, so this is
