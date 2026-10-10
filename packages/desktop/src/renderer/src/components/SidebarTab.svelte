@@ -155,7 +155,10 @@
   async function openMenu(event: MouseEvent): Promise<void> {
     event.preventDefault()
 
-    const choice = await window.api.browser.tabMenu({ tabId: tab.id })
+    const choice = await window.api.browser.tabMenu({
+      tabId: tab.id,
+      downloading: download !== null
+    })
     if (!choice) return
 
     if (choice.kind === 'duplicate') await workspace.duplicateTab(tab.id)

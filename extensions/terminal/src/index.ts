@@ -6,7 +6,9 @@ import {
   defaultShell,
   destroyAllTerminals,
   destroyTerminal,
-  forgetStaleCommands
+  forgetStaleCommands,
+  interruptTerminal,
+  isRunning
 } from './main/sessions'
 
 /**
@@ -73,6 +75,10 @@ export default defineExtension({
       // terminal emulator's window does: a shell is there to be typed into. Its
       // bar is its own, with the folder in it, so the app draws none over it.
       view: { focusOnShow: true, drawsBar: true },
+      // Interrupt is offered only while a command is running, which is when
+      // there is something to interrupt. The same as pressing Ctrl+C in it.
+      menu: (tab) =>
+        isRunning(tab.id) ? [{ label: 'Interrupt', click: () => interruptTerminal(tab.id) }] : [],
       // What stops is the shell. A settled task's terminal starts a new one in
       // the same directory when it is next shown.
       onStop: (tab) => destroyTerminal(tab.id)

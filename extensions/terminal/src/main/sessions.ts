@@ -617,6 +617,25 @@ function write(tabId: string, data: string): void {
   session.pty.write(data)
 }
 
+/** What a terminal sends for Ctrl+C: the character the line discipline turns into SIGINT. */
+const INTERRUPT = '\x03'
+
+/** Whether the tab's shell is in the middle of a command. */
+export function isRunning(tabId: string): boolean {
+  const session = sessions.get(tabId)
+  return !!session && !session.exited && session.running !== null
+}
+
+/**
+ * Presses Ctrl+C in the tab's shell, for the menu's Interrupt. Through the pty
+ * rather than a signal sent to the process: the terminal driver then does what
+ * it would for the key — interrupting the foreground job, not the shell — and
+ * a program that handles the key itself still gets to.
+ */
+export function interruptTerminal(tabId: string): void {
+  write(tabId, INTERRUPT)
+}
+
 /**
  * Tells the shell how big its window is. Programs that draw a full screen —
  * an editor, a pager, anything with a progress bar — redraw off this, so it is

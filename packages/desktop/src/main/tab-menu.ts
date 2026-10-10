@@ -5,6 +5,7 @@ import { isAudioMuted } from './browser-views'
 import { folderContents, getFolder } from './db/folders'
 import { getTab } from './db/tabs'
 import { getTask, listTasks } from './db/tasks'
+import { openStoredFile, revealStoredFile } from './files'
 import { profileMenuItems, type ProfileChoice } from './profile-menu'
 
 /**
@@ -27,6 +28,12 @@ import { profileMenuItems, type ProfileChoice } from './profile-menu'
 export type TabMenuOptions = {
   /** The tab whose row was right-clicked. */
   tabId: string
+  /**
+   * Whether a download is still filling the tab. Only the renderer knows: until
+   * it is done there is no file to hand to the OS, so a file tab's Open and
+   * Reveal are greyed out, as the bar's own buttons are.
+   */
+  downloading?: boolean
 }
 
 /**
@@ -55,7 +62,12 @@ export async function popupTabMenu(
   const tab = await getTab(options.tabId)
   if (!tab) return null
 
-  const own = tab.type === 'browser' ? null : await extensionItems(tab)
+  const own =
+    tab.type === 'browser'
+      ? null
+      : tab.type === 'file'
+        ? fileItems(tab, options.downloading ?? false)
+        : await extensionItems(tab)
   const destinations = await otherTasks(tab.taskId)
   const split = splitContaining((await getTask(tab.taskId))?.splits ?? [], tab.id)
 
@@ -239,6 +251,28 @@ function browserItems(
     {
       label: 'Reopen in Profile',
       submenu: profileMenuItems({ verb: 'reopen', current: tab.profile, allowReset: true }, settle)
+    }
+  ]
+}
+
+/**
+ * A file tab's Open and Reveal, the same two the file bar offers. Done here
+ * rather than reported back: they act on the app's copy by its storage key,
+ * which this process already has, as an extension's items do for their tabs.
+ */
+function fileItems(tab: Tab, downloading: boolean): MenuItemConstructorOptions[] {
+  if (tab.type !== 'file') return []
+  const { storageKey } = tab.payload
+  return [
+    {
+      label: 'Open',
+      enabled: !downloading,
+      click: () => void openStoredFile(storageKey)
+    },
+    {
+      label: 'Reveal',
+      enabled: !downloading,
+      click: () => revealStoredFile(storageKey)
     }
   ]
 }
