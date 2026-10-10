@@ -23,6 +23,7 @@ import type { HistoryContext } from '../main/history-window'
 import type { ClipboardContext } from '../main/clipboard-window'
 import type { WebViewReadiness } from '../main/extension-views'
 import type { InstallResult } from '../main/installed-extensions-ipc'
+import type { DefaultBrowserStatus } from '../main/default-browser'
 import type { FolderPickerOptions } from '@fluid/sdk'
 import type { ShortcutNavigation } from '../main/menu'
 import type { ProfileChoice, ProfilePickOptions } from '../main/profile-menu'
@@ -441,7 +442,13 @@ const api = {
       const handler = (_e: unknown, url: string): void => listener(url)
       ipcRenderer.on('workspace:openLink', handler)
       return () => ipcRenderer.off('workspace:openLink', handler)
-    }
+    },
+    /**
+     * Addresses other applications opened with this one before the window was
+     * up to hear them. Asked once, while the workspace loads; empty every
+     * other time.
+     */
+    takePendingLinks: (): Promise<string[]> => ipcRenderer.invoke('workspace:takePendingLinks')
   },
   shortcuts: {
     /**
@@ -728,6 +735,16 @@ const api = {
    * panel may use these (see src/main/installed-extensions-ipc.ts). Installing
    * and removing ask the user first, in a sheet on the panel.
    */
+  defaultBrowser: {
+    /** Whether Fluid is the default browser. Only the settings panel may ask. */
+    status: (): Promise<DefaultBrowserStatus> => ipcRenderer.invoke('defaultBrowser:status'),
+    /**
+     * Asks the system to make Fluid the default browser. The system asks the
+     * user to confirm, so the answer may not yet say it is; ask `status` again
+     * once the panel is back in front.
+     */
+    set: (): Promise<DefaultBrowserStatus> => ipcRenderer.invoke('defaultBrowser:set')
+  },
   installedExtensions: {
     /** Picks a built extension's folder and installs it, or replaces the one with its id. */
     install: (): Promise<InstallResult> => ipcRenderer.invoke('installedExtensions:install'),

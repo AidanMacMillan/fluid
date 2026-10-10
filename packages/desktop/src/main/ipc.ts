@@ -12,6 +12,7 @@ import { BrowserWindow, ipcMain, type Rectangle, type WebContents } from 'electr
 import { listProjects } from './db/projects'
 import * as projectsApi from './api/projects'
 import { dismissTaskNotifications, takePendingOpenTask } from './notifications'
+import { takePendingLinks } from './external-links'
 import { isSettingsWindow, openSettingsWindow } from './settings-window'
 import { hideExtensionSettings, showExtensionSettings } from './settings-views'
 import type { FolderPickerOptions } from '@fluid/sdk'
@@ -406,6 +407,10 @@ export function registerIpcHandlers(): void {
   // had no window is what made this one, and the request has been waiting for
   // somebody to be listening. Every other window gets null and moves on.
   ipcMain.handle('notifications:takePendingOpenTask', () => takePendingOpenTask())
+
+  // Links other applications opened with this one while it had no window to
+  // show them in, asked for at the same moment and for the same reason.
+  ipcMain.handle('workspace:takePendingLinks', () => takePendingLinks())
 
   // Settings window
   //

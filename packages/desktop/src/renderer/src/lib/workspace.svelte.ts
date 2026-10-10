@@ -108,6 +108,9 @@ class Workspace {
   activeTaskId = $state<string | null>(null)
   ready = $state(false)
 
+  /** Links followed before `ready`, opened by `load` once it is. */
+  private linksBeforeReady: string[] = []
+
   /**
    * Whether the tab sidebar is hidden. Chrome state rather than workspace data,
    * but it is persisted the same way everything else here is, so it lives with
@@ -302,6 +305,13 @@ class Workspace {
     if (pending) await this.revealTask(pending)
 
     this.ready = true
+
+    // Links other applications opened with Fluid while it had no window, or
+    // while this one was still loading. After `ready`, so that they land in the
+    // task that was just selected rather than in one made for them.
+    const links = [...this.linksBeforeReady, ...(await api.workspace.takePendingLinks())]
+    this.linksBeforeReady = []
+    for (const link of links) await this.openLink(link)
   }
 
   toggleSidebar(): void {
@@ -870,6 +880,14 @@ class Workspace {
    * so the request still has a visible result.
    */
   async openLink(url: string): Promise<void> {
+    // Before the workspace has loaded there is no selected task to open it in,
+    // and `createBrowserTab` would make one. `load` opens it once there is. The
+    // sidebar panel's copy is never loaded, only handed a task to mirror, so
+    // having one is as good as being ready.
+    if (!this.ready && this.activeTaskId === null) {
+      this.linksBeforeReady.push(url)
+      return
+    }
     const pinned = this.tabs.find((tab) => tab.id !== this.activeTabId && pinnedTo(tab, url, null))
     if (pinned) {
       await this.revealPinnedTab(pinned, url, false)
