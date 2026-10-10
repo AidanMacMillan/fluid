@@ -210,7 +210,7 @@
       use:keepSelectionInView
       role="listbox"
       aria-label="Icons"
-      class="grid max-h-96 gap-0.5 overflow-y-auto overflow-x-hidden p-1.5"
+      class="grid max-h-96 gap-0.5 overflow-x-hidden overflow-y-auto p-1.5"
       style="grid-template-columns: repeat({COLUMNS}, minmax(0, 1fr))"
     >
       {#each icons as icon, index (icon.id)}
