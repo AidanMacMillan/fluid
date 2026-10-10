@@ -240,9 +240,7 @@
     {#if activity}
       <span
         class="pointer-events-none absolute top-1/2 right-2.5 size-2 -translate-y-1/2 rounded-full
-               group-hover/tab:right-7 peer-focus-visible/close:right-7 {ACTIVITY_DOT[
-          activity
-        ]}"
+               group-hover/tab:right-7 peer-focus-visible/close:right-7 {ACTIVITY_DOT[activity]}"
         aria-hidden="true"
       ></span>
     {/if}

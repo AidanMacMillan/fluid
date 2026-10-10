@@ -268,7 +268,7 @@
     <ul
       use:keepSelectionInView
       aria-label="Clipboard history"
-      class="flex max-h-[26rem] flex-col gap-0.5 overflow-y-auto overflow-x-hidden p-1.5"
+      class="flex max-h-[26rem] flex-col gap-0.5 overflow-x-hidden overflow-y-auto p-1.5"
     >
       {#each shown as entry, index (entry.id)}
         <!-- The row itself is not a button. It was, once, and the whole of it

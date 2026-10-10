@@ -320,7 +320,7 @@
        its pinned ones off the top the same way any other list scrolls. -->
   <div
     role="presentation"
-    class="relative flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-contain drop-zone"
+    class="relative flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-contain drop-zone"
     class:receiving
     bind:this={scroller}
     onscroll={() => compact && ondismiss?.()}
