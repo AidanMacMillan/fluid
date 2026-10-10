@@ -306,7 +306,7 @@ export function openMiniplayerWindow(
   // Opaque: what goes in it is a video or a call, and both paint every pixel.
   view.setBackgroundColor('#000000')
 
-  const floating = createFloating(tabId, view, {
+  const floating = createFloating(view, {
     width,
     height: total,
     x: Math.round(area.x + area.width - width - INSET),
@@ -416,7 +416,7 @@ export function popOut(tabId: string, view: WebContentsView, host: BrowserWindow
   const height = place?.height ?? DEFAULT_SIZE.height + BAR_HEIGHT
   poppedOut = {
     tabId,
-    ...createFloating(tabId, view, {
+    ...createFloating(view, {
       width,
       height,
       x: place?.x ?? Math.round(area.x + area.width - width - INSET),
@@ -431,7 +431,7 @@ export function popOut(tabId: string, view: WebContentsView, host: BrowserWindow
  * A frameless window above everything, with the bar across its top and `view`
  * filling the rest.
  */
-function createFloating(tabId: string, view: WebContentsView, bounds: Rectangle): Floating {
+function createFloating(view: WebContentsView, bounds: Rectangle): Floating {
   const window = new BaseWindow({
     ...bounds,
     // The caller decides whether opening this window should activate it.
@@ -476,7 +476,7 @@ function createFloating(tabId: string, view: WebContentsView, bounds: Rectangle)
     })
   }
 
-  const bar = createBar(tabId)
+  const bar = createBar()
   window.contentView.addChildView(view)
   window.contentView.addChildView(bar)
   const layout = (): void => {
@@ -503,17 +503,12 @@ function createFloating(tabId: string, view: WebContentsView, bounds: Rectangle)
  * bar, because the tab's icon may be one of the app's glyphs, which only the
  * app's stylesheet can draw.
  */
-function createBar(tabId: string): WebContentsView {
+function createBar(): WebContentsView {
   const bar = new WebContentsView({
     webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false }
   })
   bar.setBackgroundColor('#00000000')
 
-  // Whatever arrived while it was loading.
-  bar.webContents.on('did-finish-load', () => {
-    const tab = described.get(tabId)
-    if (tab) bar.webContents.send('popout:tab', tab)
-  })
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     void bar.webContents.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/popout.html`)
   } else {
@@ -537,6 +532,21 @@ export function describeFloating(tabId: string, tab: PoppedOutTab): void {
   for (const { webContents } of bars) {
     if (!webContents.isDestroyed() && !webContents.isLoading()) webContents.send('popout:tab', tab)
   }
+}
+
+/**
+ * A bar saying it is listening, which is when it is told what its tab is
+ * called: whatever was described while it was still loading, or not yet
+ * listening, would otherwise be lost, and a description is only sent again
+ * when it changes. With nothing described yet, the main window is asked to
+ * describe every floating tab again.
+ */
+export function sendDescription(sender: WebContents): void {
+  const owner = floatingOwner(sender)
+  if (!owner) return
+  const tab = described.get(owner.tabId)
+  if (tab) sender.send('popout:tab', tab)
+  else floatingChanged()
 }
 
 /**

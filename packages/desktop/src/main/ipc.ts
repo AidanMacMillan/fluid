@@ -68,7 +68,7 @@ import {
   type SplitDropReport
 } from './split-drop'
 import { siteIcon } from './site-icons'
-import { describeFloating, type PoppedOutTab } from './miniplayer'
+import { describeFloating, sendDescription, type PoppedOutTab } from './miniplayer'
 import {
   clearClipboardEntries,
   deleteClipboardEntry,
@@ -186,6 +186,7 @@ export function registerIpcHandlers(): void {
   ipcMain.on('browser:describeFloating', (_e, tabId: string, tab: PoppedOutTab) =>
     describeFloating(tabId, tab)
   )
+  ipcMain.on('popout:ready', (e) => sendDescription(e.sender))
   ipcMain.on('popout:back', (e) => returnFromFloating(e.sender))
   ipcMain.on('popout:dismiss', (e) => dismissFloating(e.sender))
   ipcMain.on('browser:setBounds', (_e, tabId: string, bounds: MeasuredBounds) =>

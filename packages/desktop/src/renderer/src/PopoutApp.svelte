@@ -16,7 +16,12 @@
 
   let tab = $state<PoppedOutTab | null>(null)
 
-  $effect(() => window.api.popout.onTab((next) => (tab = next)))
+  $effect(() => {
+    const off = window.api.popout.onTab((next) => (tab = next))
+    // Only now is anything sent here heard, so this is when to ask for it.
+    window.api.popout.ready()
+    return off
+  })
 
   /** The image that failed to decode, if any, which the glyph stands in for. */
   let broken = $state<string | null>(null)
