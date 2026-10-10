@@ -11,7 +11,7 @@ function load(path, dependencies = {}) {
     ts.transpileModule(readFileSync(new URL(path, import.meta.url), 'utf8'), {
       compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
     }).outputText,
-    { exports, require: (id) => dependencies[id] }
+    { exports, URL, require: (id) => dependencies[id] }
   )
   return exports
 }
@@ -47,7 +47,7 @@ const body = ast.statements
 const wrapped = `export function createLauncher(dependencies) {
   const { window, location, document, extensions, asksForInput, forTypedText,
     launcherDetail, analyseQuery, matchScore, scoreRow, displayUrl, isMultiline, looksLikeUrl, resolveInput, searchUrl,
-    matchesQuery, searchEngines, INCOGNITO_PROFILE_ID } = dependencies;
+    matchesQuery, searchEngines, INCOGNITO_PROFILE_ID, fluid } = dependencies;
   const ignoreEffect = () => {};
   ${body}
   return {
@@ -57,6 +57,8 @@ const wrapped = `export function createLauncher(dependencies) {
     setQuery(text) { query = text; selected = 0; moved = false },
     setField(element) { field = element },
     setBookmarks(list) { bookmarks = list },
+    toggleBookmark,
+    attachIcon,
     open, onKeydown
   };
 }`
@@ -75,6 +77,7 @@ after(() => rmSync(directory, { recursive: true, force: true }))
 
 function setup(mode = 'tab', extra = []) {
   const sent = []
+  const bookmarkCalls = []
   const agent = createAgentRenderer({ id: 'agent', name: 'Agent', icon: 'agent-icon' })
   const host = {
     api: { projects: { workingDirectory: async () => '/project' } },
@@ -95,7 +98,12 @@ function setup(mode = 'tab', extra = []) {
     ...sdk,
     ...urls,
     ...search,
-    window: { api: { launcher: { submit: (choice) => sent.push(choice) } } },
+    window: {
+      api: {
+        launcher: { submit: (choice) => sent.push(choice) },
+        browser: { siteIcon: async (url) => `data:image/png;base64,icon-of-${new URL(url).host}` }
+      }
+    },
     location: { search: `?mode=${mode}` },
     document: {},
     extensions: {
@@ -106,11 +114,23 @@ function setup(mode = 'tab', extra = []) {
       newTaskEntries: () => entries('newTask')
     },
     searchEngines: { current: searchEngine.DEFAULT_SEARCH_ENGINE },
-    INCOGNITO_PROFILE_ID: -1
+    INCOGNITO_PROFILE_ID: -1,
+    fluid: {
+      bookmarks: {
+        create: async (input) => {
+          bookmarkCalls.push(['create', input])
+          return { id: 'new', source: { kind: 'user' }, ...input }
+        },
+        update: async (input) => bookmarkCalls.push(['update', input]),
+        delete: async (input) => bookmarkCalls.push(['delete', input])
+      }
+    }
   })
   launcher.setField(field)
-  launcher.setBookmarks([{ id: 1, label: 'example.com', url: 'https://example.com' }])
-  return { launcher, sent, field }
+  launcher.setBookmarks([
+    { id: 1, label: 'example.com', url: 'https://example.com', source: { kind: 'user' } }
+  ])
+  return { launcher, sent, field, bookmarkCalls }
 }
 
 function press(launcher, key, options = {}) {
@@ -172,10 +192,117 @@ test('single-line behavior returns after removing the last newline', () => {
   launcher.setQuery('https://example.com\n')
   assert.equal(launcher.choices[0].key, 'search')
   launcher.setQuery('https://example.com')
-  assert.equal(launcher.choices[0].key, 'open')
+  // Already a bookmark, so the bookmark is the row that opens it.
+  assert.equal(launcher.choices[0].key, 'bookmark:1')
   assert.ok(launcher.choices.some((choice) => choice.key === 'typed:agent.ask'))
-  assert.ok(launcher.choices.some((choice) => choice.key === 'bookmark:1'))
+  launcher.setQuery('https://other.example.net')
+  assert.equal(launcher.choices[0].key, 'open')
   assert.ok(launcher.choices.every((choice) => typeof choice.supportsMultiline === 'boolean'))
+})
+
+for (const mode of ['tab', 'task']) {
+  test(`${mode}: the open-website row can be bookmarked, and un-bookmarked once it is`, async () => {
+    const { launcher, bookmarkCalls } = setup(mode)
+    launcher.setQuery('https://news.example.org/today')
+    const row = launcher.choices.find((choice) => choice.key === 'open')
+    assert.equal(row.bookmarkUrl, 'https://news.example.org/today')
+    // Searches and extension rows are not websites to keep.
+    assert.ok(
+      launcher.choices
+        .filter((choice) => choice.key === 'search' || choice.key.startsWith('typed:'))
+        .every((choice) => choice.bookmarkUrl === undefined)
+    )
+
+    await launcher.toggleBookmark(row.bookmarkUrl)
+    // The bookmark is kept first; the site's favicon follows onto it.
+    assert.deepEqual(bookmarkCalls[0], [
+      'create',
+      { label: 'news.example.org/today', url: 'https://news.example.org/today' }
+    ])
+    await new Promise((resolve) => setImmediate(resolve))
+    assert.deepEqual(bookmarkCalls[1], [
+      'update',
+      { id: 'new', icon: 'data:image/png;base64,icon-of-news.example.org' }
+    ])
+
+    launcher.setBookmarks([
+      { id: 'b1', label: 'news', url: 'https://news.example.org/today', source: { kind: 'user' } }
+    ])
+    await launcher.toggleBookmark(row.bookmarkUrl)
+    assert.deepEqual(bookmarkCalls[2], ['delete', { id: 'b1' }])
+  })
+}
+
+test('an extension bookmark is not removed by the star', async () => {
+  const { launcher, bookmarkCalls } = setup()
+  launcher.setBookmarks([
+    {
+      id: 'catalogue.x',
+      label: 'x',
+      url: 'https://x.example.com',
+      source: { kind: 'extension', extensionId: 'catalogue' }
+    }
+  ])
+  await launcher.toggleBookmark('https://x.example.com')
+  assert.equal(bookmarkCalls[0][0], 'create')
+})
+
+test('an address that is already bookmarked is its bookmark row, not a row beside it', () => {
+  const { launcher } = setup()
+  launcher.setQuery('example.com')
+  assert.equal(launcher.choices.filter((choice) => choice.key === 'open').length, 0)
+  assert.equal(launcher.choices[0].key, 'bookmark:1')
+
+  launcher.setBookmarks([])
+  assert.equal(launcher.choices[0].key, 'open')
+})
+
+test('bookmarks wait for something to be typed', () => {
+  for (const mode of ['tab', 'task', 'incognito']) {
+    const { launcher } = setup(mode)
+    launcher.setQuery('')
+    assert.equal(
+      launcher.choices.some((choice) => choice.key.startsWith('bookmark:')),
+      false
+    )
+    launcher.setQuery('exa')
+    assert.ok(launcher.choices.some((choice) => choice.key === 'bookmark:1'))
+  }
+})
+
+test('a bookmark row can be removed with its star; an extension’s cannot', () => {
+  const { launcher } = setup()
+  launcher.setBookmarks([
+    { id: 'u1', label: 'mine', url: 'https://mine.example.com', source: { kind: 'user' } },
+    {
+      id: 'catalogue.x',
+      label: 'theirs',
+      url: 'https://theirs.example.com',
+      source: { kind: 'extension', extensionId: 'catalogue' }
+    }
+  ])
+  launcher.setQuery('example')
+  const star = (key) => launcher.choices.find((choice) => choice.key === key).bookmarkUrl
+  assert.equal(star('bookmark:u1'), 'https://mine.example.com')
+  assert.equal(star('bookmark:catalogue.x'), undefined)
+})
+
+test('a bookmark without an icon is given the site’s, once', async () => {
+  const { launcher, bookmarkCalls } = setup()
+  const bookmark = { id: 'u1', url: 'https://youtube.com/', source: { kind: 'user' } }
+  await launcher.attachIcon(bookmark)
+  await launcher.attachIcon(bookmark)
+  assert.deepEqual(bookmarkCalls, [
+    ['update', { id: 'u1', icon: 'data:image/png;base64,icon-of-youtube.com' }]
+  ])
+  await launcher.attachIcon({ ...bookmark, id: 'u2', icon: 'data:image/png;base64,x' })
+  assert.equal(bookmarkCalls.length, 1)
+})
+
+test('incognito offers no bookmark star', () => {
+  const { launcher } = setup('incognito')
+  launcher.setQuery('https://other.example.net')
+  assert.equal(launcher.choices.find((choice) => choice.key === 'open').bookmarkUrl, undefined)
 })
 
 test('task and tab panels offer the same rows', () => {
@@ -232,7 +359,7 @@ test('task panel names the task after the row taken', async () => {
     return sent.at(-1).task
   }
   assert.equal((await take('search', 'plain words')).title, 'plain words')
-  assert.equal((await take('open', 'example.com')).title, urls.displayUrl('https://example.com'))
+  assert.equal((await take('open', 'other.example.net')).title, 'other.example.net')
   assert.equal((await take('bookmark:1', 'example')).title, 'example.com')
   assert.equal((await take('typed:terminal.run', 'ls -la')).title, 'ls -la')
   const shell = await take('action:terminal.shell', 'term')

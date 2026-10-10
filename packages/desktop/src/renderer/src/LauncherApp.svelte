@@ -27,7 +27,7 @@
    * The panel that opens a new tab: a field to type into, the handful of places
    * worth going in a keystroke, below a line the kinds of tab that are not
    * places at all, and below another — only once something has been typed —
-   * the catalogues extensions supply (every app Okta will sign you into).
+   * the catalogues extensions supply.
    *
    * It decides nothing about tabs. What it produces is a choice, handed back to
    * the window it opened over — that window knows which task is selected, and
@@ -92,7 +92,7 @@
      *
      * `go` is everywhere worth going — what was typed, then the bookmarks.
      * `do` is the tabs that are not places at all. `catalogue` is the
-     * search-only bookmarks — the Okta apps — last because they are the longest
+     * search-only bookmarks — an extension's catalogue — last because they are the longest
      * and the least curated: searched into rather than read down, and the rows
      * above should keep their place when it fills.
      */
@@ -106,6 +106,16 @@
      * search sits, and every row while nothing is typed.
      */
     score?: number
+    /**
+     * Set on a row that opens a website the user could keep, or has kept: the
+     * address it opens, which is what the star at the row's end toggles.
+     */
+    bookmarkUrl?: string
+    /**
+     * Set on a row that opens a website, whether or not it can be bookmarked:
+     * the address it opens, for telling when two rows are the same place.
+     */
+    address?: string
   }
 
   /** The middle of the scale, which a row with no score of its own is given. */
@@ -301,26 +311,87 @@
   let bookmarks = $state<Bookmark[]>([])
   $effect(() => fluid.watch('bookmarks.list', {}, (list) => (bookmarks = list)))
 
+  /** Whether two addresses are the same place, however each was spelled (`https://a.com` is `https://a.com/`). */
+  function sameAddress(a: string, b: string): boolean {
+    try {
+      return new URL(a).href === new URL(b).href
+    } catch {
+      return a === b
+    }
+  }
+
+  /** The user's own bookmarks of an address. An extension's are not theirs to remove. */
+  function savedBookmarks(url: string): Bookmark[] {
+    return bookmarks.filter(
+      ({ source, url: saved }) => source.kind === 'user' && sameAddress(saved, url)
+    )
+  }
+
+  /**
+   * The star on a row: keeps its address as a bookmark, or lets go of the ones
+   * already kept. The list updates itself through the watch above, so the star
+   * fills (or the row goes) when the change lands rather than on a guess.
+   */
+  async function toggleBookmark(url: string): Promise<void> {
+    try {
+      const saved = savedBookmarks(url)
+      if (saved.length > 0) {
+        for (const { id } of saved) await fluid.bookmarks.delete({ id })
+        return
+      }
+      const created = await fluid.bookmarks.create({ label: displayUrl(url), url })
+      void attachIcon(created)
+    } catch (error) {
+      console.error('Could not change the bookmark:', error)
+    }
+  }
+
+  /** Bookmarks already asked for an icon, hit or miss, so a site with none is not asked again on every change. */
+  // Bookkeeping only: nothing is drawn from it, so it has no business being reactive.
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity
+  const iconsAsked = new Set<string>()
+
+  /**
+   * Gives a bookmark the site's favicon, as the sidebar draws it: from what the
+   * app has already loaded when it can, by fetching otherwise. Done after the
+   * bookmark is kept rather than before, so the star never waits on a slow site.
+   */
+  async function attachIcon(bookmark: Bookmark): Promise<void> {
+    if (bookmark.icon || iconsAsked.has(bookmark.id)) return
+    iconsAsked.add(bookmark.id)
+    try {
+      const icon = await window.api.browser.siteIcon(bookmark.url, null, null)
+      if (icon) await fluid.bookmarks.update({ id: bookmark.id, icon })
+    } catch (error) {
+      console.error('Could not fetch the bookmark icon:', error)
+    }
+  }
+
+  // Bookmarks kept before they had icons, or whose site had none to find, are
+  // looked up once: the row is a glyph until the icon lands.
+  $effect(() => {
+    for (const bookmark of bookmarks) {
+      if (bookmark.source.kind === 'user') void attachIcon(bookmark)
+    }
+  })
+
   /**
    * The bookmarks worth showing for what has been typed so far, scored by how
-   * near it comes to their names. A catalogue marked search-only stays out of
-   * the way until something is typed — it is the reason the panel has to stay
-   * quiet when it opens, and the reason it can be long — and is matched on its
-   * label and keywords rather than its address: a catalogue's addresses tend
-   * to share everything but an id.
+   * near it comes to their names. None while nothing is typed: an empty panel
+   * is for the actions, and a list of every bookmark there is would bury them
+   * (and, for the catalogues extensions supply, run to hundreds). A catalogue
+   * marked search-only is matched on its label and keywords rather than its
+   * address: a catalogue's addresses tend to share everything but an id.
    */
   const matches = $derived(
-    multiline
+    multiline || analysed.empty
       ? []
       : bookmarks.flatMap((bookmark) => {
-          const score =
-            bookmark.searchOnly && analysed.empty
-              ? 0
-              : matchScore(analysed, {
-                  label: bookmark.label,
-                  detail: bookmark.searchOnly ? undefined : bookmark.url,
-                  keywords: bookmark.keywords
-                })
+          const score = matchScore(analysed, {
+            label: bookmark.label,
+            detail: bookmark.searchOnly ? undefined : bookmark.url,
+            keywords: bookmark.keywords
+          })
           return score > 0 ? [{ bookmark, score }] : []
         })
   )
@@ -510,7 +581,10 @@
             kind: 'choice',
             choice: inMode({ kind: 'url', url, profile }, displayUrl(url))
           },
-          score: 0.9
+          score: 0.9,
+          address: url,
+          // Not offered in incognito: a bookmark is a record that outlives the window.
+          bookmarkUrl: incognito ? undefined : url
         }
       ]
     }
@@ -580,11 +654,25 @@
    */
   const choices = $derived.by<Choice[]>(() => {
     if (prompt !== null) return answered ? [answered] : []
+    const bookmarked = matches.filter(({ bookmark }) => !bookmark.searchOnly).map(bookmarkChoice)
+    // An address that is already a bookmark is that bookmark, not an address
+    // and a bookmark of it side by side: the bookmark takes the open row's
+    // place, at the score the open row had.
+    const opened = typed.find(({ key }) => key === 'open')
+    const same = (row: Choice): boolean =>
+      opened?.address !== undefined &&
+      row.address !== undefined &&
+      sameAddress(row.address, opened.address)
+    const replaced = bookmarked.some(same)
     const rows: Choice[] = [
       ...(blank ? [blank] : []),
-      ...typed,
+      ...(replaced ? typed.filter((row) => row !== opened) : typed),
       ...forTyped,
-      ...matches.filter(({ bookmark }) => !bookmark.searchOnly).map(bookmarkChoice),
+      ...bookmarked.map((row) =>
+        replaced && same(row)
+          ? { ...row, score: Math.max(row.score ?? MIDDLE, opened?.score ?? 0) }
+          : row
+      ),
       ...actions.map(actionChoice),
       ...matches.filter(({ bookmark }) => bookmark.searchOnly).map(bookmarkChoice)
     ]
@@ -624,7 +712,10 @@
         kind: 'choice',
         choice: inMode({ kind: 'url', url: bookmark.url, profile }, bookmark.label)
       },
-      score
+      score,
+      address: bookmark.url,
+      // The user's own can be let go of from here; an extension's cannot.
+      bookmarkUrl: bookmark.source.kind === 'user' ? bookmark.url : undefined
     }
   }
 
@@ -944,7 +1035,7 @@
           <li class="mx-1 my-1.5 h-px bg-white/10" role="separator"></li>
         {/if}
 
-        <li>
+        <li class="relative">
           <!-- Mouse movement and arrow keys share one selection and highlight. -->
           <button
             type="button"
@@ -955,7 +1046,9 @@
             }}
             onclick={() => open(choice)}
             oncontextmenu={(event) => pick(choice, event)}
-            class="flex w-full items-center gap-2.5 rounded-lg glass-control px-2.5 py-2 text-left"
+            class="flex w-full items-center gap-2.5 rounded-lg glass-control px-2.5 py-2 text-left {choice.bookmarkUrl
+              ? 'pr-9'
+              : ''}"
           >
             {#if choice.icon.kind === 'favicon'}
               <!-- Dimmed rather than tinted. A glyph can take the row's text
@@ -963,7 +1056,7 @@
                  an unselected row takes has to be made out of opacity.
 
                  `object-contain` because half the catalogue's logos are
-                 wordmarks, not marks — Okta draws its tiles wide, and a 420x71
+                 wordmarks, not marks — a catalogue's tiles can be wide, and a 420x71
                  strip stretched into a square box is the brand rendered as a
                  smear. Letterboxed it is at least the right shape and the right
                  colour, which is all a 16px row was ever going to carry. -->
@@ -988,6 +1081,30 @@
               >
             {/if}
           </button>
+
+          {#if choice.bookmarkUrl}
+            {@const url = choice.bookmarkUrl}
+            {@const saved = savedBookmarks(url).length > 0}
+            <!-- A sibling of the row's button, not inside it. Out of the tab order
+                 and kept off the field's focus, so the arrow keys and typing carry
+                 on as they were; mousedown is held back for the same reason. -->
+            <button
+              type="button"
+              tabindex="-1"
+              title={saved ? 'Remove bookmark' : 'Bookmark this site'}
+              aria-label={saved ? 'Remove bookmark' : 'Bookmark this site'}
+              aria-pressed={saved}
+              onmousedown={(event) => event.preventDefault()}
+              onclick={() => void toggleBookmark(url)}
+              class="absolute top-1/2 right-2 grid size-6 -translate-y-1/2 place-items-center rounded-md glass-control
+                     {saved ? 'text-marker' : 'text-ink-500 hover:text-ink-100'}"
+            >
+              <span
+                class="{saved ? 'icon-[ph--star-fill]' : 'icon-[ph--star]'} text-sm"
+                aria-hidden="true"
+              ></span>
+            </button>
+          {/if}
         </li>
       {/each}
     </ul>
