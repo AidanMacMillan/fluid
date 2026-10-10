@@ -513,6 +513,8 @@ const api = {
     }
   },
   popout: {
+    /** From a floating window's bar, once it is listening for `onTab`. */
+    ready: (): void => ipcRenderer.send('popout:ready'),
     /** From a floating window's bar: go back to the tab, in the main window. */
     back: (): void => ipcRenderer.send('popout:back'),
     /**
