@@ -25,6 +25,8 @@ import {
   closeLauncherWindow,
   openLauncherWindow,
   holdLauncherWindow,
+  popupLauncherRowMenu,
+  setLauncherEditing,
   resizeLauncherWindow,
   submitLauncherChoice,
   type LauncherChoice,
@@ -476,6 +478,13 @@ export function registerIpcHandlers(): void {
     (_e, entry: string, alternatives: LauncherMenuItem[]) =>
       void chooseLauncherAlternative(entry, alternatives)
   )
+
+  // A website row's menu, which — unlike the two above — does come back: what
+  // a bookmark item does happens in the panel, and the panel is held open for it.
+  ipcMain.handle('launcher:rowMenu', (_e, items: LauncherMenuItem[], url: string | null) =>
+    popupLauncherRowMenu(items, url)
+  )
+  ipcMain.on('launcher:editing', (_e, editing: boolean) => setLauncherEditing(editing === true))
 
   ipcMain.on('history:visit', (event, tabId: string | null, taskId: string | null) => {
     if (

@@ -1,8 +1,8 @@
 import { join } from 'path'
-import { BrowserWindow, Menu, type Rectangle } from 'electron'
+import { BrowserWindow, Menu, type MenuItemConstructorOptions, type Rectangle } from 'electron'
 import { trackWindowAppearance, windowAppearance } from './window-appearance'
 import { is } from '@electron-toolkit/utils'
-import { popupProfileMenu } from './profile-menu'
+import { popupProfileMenu, profileMenuItems } from './profile-menu'
 import { INCOGNITO_PROFILE_ID } from './profiles'
 import type { NewTab, NewTaskTemplate } from '@fluid/sdk'
 
@@ -159,6 +159,18 @@ export function holdLauncherWindow(): () => void {
   }
 }
 
+/**
+ * Whether the panel is in the middle of editing a row's name in place. Escape
+ * means "never mind" for the whole panel, and while a name is being edited the
+ * never-mind it means is the edit's — see the key handler below.
+ */
+let editing = false
+
+/** The panel says when it starts and stops editing a name in place. */
+export function setLauncherEditing(value: boolean): void {
+  editing = value
+}
+
 /** The window the panel was opened over, and the one its choice goes back to. */
 let opener: BrowserWindow | undefined
 
@@ -254,7 +266,8 @@ export function openLauncherWindow(
   // composition, with text selected, from the list rather than the input.
   window.webContents.on('before-input-event', (_event, input) => {
     if (input.type !== 'keyDown') return
-    const closing = input.key === 'Escape' || ((input.meta || input.control) && input.key === 'w')
+    const closing =
+      (input.key === 'Escape' && !editing) || ((input.meta || input.control) && input.key === 'w')
     if (closing) window.close()
   })
 
@@ -300,6 +313,7 @@ export function openLauncherWindow(
       launcherWindow = undefined
       opener = undefined
       launcherTaskId = null
+      editing = false
     }
   })
 
@@ -384,6 +398,80 @@ export async function chooseLauncherProfile(url: string): Promise<void> {
       url,
       profile: choice.profile
     } satisfies LauncherChoice)
+  }
+}
+
+/**
+ * The menu for a row that is a website: whatever the panel offers for it
+ * (keeping it as a bookmark, renaming or letting go of one), and below those,
+ * which profile to open it in. Answers the id of the panel's item that was
+ * taken, or null — for a dismissed menu, and for a profile, which is opened
+ * here as `chooseLauncherProfile` does.
+ *
+ * Unlike the profile menu alone, taking an item does not end the panel: what a
+ * bookmark item does happens in the panel itself, so the panel is held open
+ * while the menu is up, and it is still there to be told the answer.
+ */
+type RowMenuAnswer = { item: string } | { profile: number | null } | null
+
+export async function popupLauncherRowMenu(
+  items: LauncherMenuItem[],
+  url: string | null
+): Promise<string | null> {
+  if (launcherMode === 'incognito') return null
+  const parent = opener
+  const panel = launcherWindow
+  const release = holdLauncherWindow()
+
+  try {
+    const choice = await new Promise<RowMenuAnswer>((resolve) => {
+      let settled = false
+      const settle = (answer: RowMenuAnswer): void => {
+        if (settled) return
+        settled = true
+        resolve(answer)
+      }
+
+      const template: MenuItemConstructorOptions[] = items.map(({ id, label }) => ({
+        label,
+        click: () => settle({ item: id })
+      }))
+      if (url !== null) {
+        if (template.length > 0) template.push({ type: 'separator' })
+        template.push({
+          label: 'Open in Profile',
+          submenu: profileMenuItems({ verb: 'open' }, (profileChoice) => {
+            if (profileChoice.kind === 'profile') settle({ profile: profileChoice.profile })
+          })
+        })
+      }
+
+      // Dismissal is deferred a turn so a click in the same turn wins; see
+      // `popupProfileMenu`.
+      const callback = (): void => {
+        setTimeout(() => settle(null), 0)
+      }
+      const window = panel && !panel.isDestroyed() ? panel : (parent ?? null)
+      const menu = Menu.buildFromTemplate(template)
+      if (window && !window.isDestroyed()) menu.popup({ window, callback })
+      else menu.popup({ callback })
+    })
+
+    if (choice === null) return null
+    if ('item' in choice) return choice.item
+
+    closeLauncherWindow()
+    if (url !== null && parent && !parent.isDestroyed()) {
+      parent.webContents.send('launcher:openTab', {
+        kind: 'url',
+        url,
+        profile: choice.profile
+      } satisfies LauncherChoice)
+    }
+    return null
+  } finally {
+    // A turn late: the blur that closing the menu can cause arrives after it.
+    setTimeout(release, 0)
   }
 }
 

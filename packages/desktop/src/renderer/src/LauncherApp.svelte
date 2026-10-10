@@ -111,6 +111,8 @@
      * address it opens, which is what the star at the row's end toggles.
      */
     bookmarkUrl?: string
+    /** Set on a row that is one of the user's own bookmarks: the one right-clicking it renames or removes. */
+    bookmarkId?: string
     /**
      * Set on a row that opens a website, whether or not it can be bookmarked:
      * the address it opens, for telling when two rows are the same place.
@@ -344,6 +346,42 @@
     } catch (error) {
       console.error('Could not change the bookmark:', error)
     }
+  }
+
+  /**
+   * The bookmark whose name is being edited in place, and what it has been
+   * edited to so far. At most one, and while there is one the keys belong to
+   * its field rather than to the list (see `onKeydown`).
+   */
+  let renaming = $state<{ id: string; value: string } | null>(null)
+
+  /** Puts the cursor in a field as it appears, with its text selected to be typed over. */
+  function focusAndSelect(node: HTMLInputElement): void {
+    node.focus()
+    node.select()
+  }
+
+  /** Starts editing a bookmark's name in the row itself. */
+  function startRename(id: string, label: string): void {
+    renaming = { id, value: label }
+    api.setEditing(true)
+  }
+
+  /** Ends the edit, keeping what was typed only if asked to, and hands the keys back to the field. */
+  function endRename(keep: boolean): void {
+    const edit = renaming
+    if (edit === null) return
+    renaming = null
+    api.setEditing(false)
+    field?.focus()
+
+    const label = edit.value.trim()
+    const current = bookmarks.find(({ id }) => id === edit.id)
+    // An empty name is "never mind", not a bookmark with nothing to call it.
+    if (!keep || label === '' || current === undefined || label === current.label) return
+    fluid.bookmarks.update({ id: edit.id, label }).catch((error) => {
+      console.error('Could not rename the bookmark:', error)
+    })
   }
 
   /** Bookmarks already asked for an icon, hit or miss, so a site with none is not asked again on every change. */
@@ -715,7 +753,8 @@
       score,
       address: bookmark.url,
       // The user's own can be let go of from here; an extension's cannot.
-      bookmarkUrl: bookmark.source.kind === 'user' ? bookmark.url : undefined
+      bookmarkUrl: bookmark.source.kind === 'user' ? bookmark.url : undefined,
+      bookmarkId: bookmark.source.kind === 'user' ? bookmark.id : undefined
     }
   }
 
@@ -867,7 +906,30 @@
 
     if (row.outcome.kind !== 'choice') return
     if (row.outcome.choice.kind !== 'url') return
-    api.openInProfile(row.outcome.choice.url)
+    const url = row.outcome.choice.url
+
+    // A website the user could keep, or has kept, also has what to do about
+    // that. The panel is held open while the menu is up, so the answer comes
+    // back here rather than going anywhere else.
+    const bookmarkUrl = row.bookmarkUrl
+    if (bookmarkUrl !== undefined) {
+      const bookmarkId = row.bookmarkId
+      const items =
+        bookmarkId !== undefined
+          ? [
+              { id: 'rename', label: 'Rename…' },
+              { id: 'remove', label: 'Remove Bookmark' }
+            ]
+          : [{ id: 'bookmark', label: 'Bookmark This Site' }]
+      void api.rowMenu(items, url).then((answer) => {
+        // The star's own toggle: it keeps an address that is not kept and lets go of one that is.
+        if (answer === 'bookmark' || answer === 'remove') void toggleBookmark(bookmarkUrl)
+        else if (answer === 'rename' && bookmarkId !== undefined) startRename(bookmarkId, row.label)
+      })
+      return
+    }
+
+    api.openInProfile(url)
   }
 
   /**
@@ -885,6 +947,10 @@
    */
   function onKeydown(event: KeyboardEvent): void {
     if (event.isComposing) return
+    // A name being edited has the keys: Enter keeps it and Escape drops it (the
+    // main process leaves Escape to the edit while one is open), and the arrows
+    // are the text field's own.
+    if (renaming !== null) return
     // Shift+Enter belongs to the textarea, including when there are no choices.
     if (event.key === 'Enter') {
       if (event.shiftKey) return
@@ -1026,6 +1092,7 @@
       class="flex max-h-96 min-h-0 flex-col gap-0.5 overflow-x-hidden overflow-y-auto p-1.5"
     >
       {#each choices as choice, index (choice.key)}
+        {@const editingName = renaming !== null && renaming.id === choice.bookmarkId}
         <!-- The seam between one band of the panel and the next, and the whole of
            what marks them apart — the same line the sidebar draws between a
            task's pinned tabs and the rest. Drawn on the first row below it
@@ -1037,15 +1104,19 @@
 
         <li class="relative">
           <!-- Mouse movement and arrow keys share one selection and highlight. -->
-          <button
-            type="button"
+          <!-- A div while its name is being edited: a field inside a button is
+               not one the keyboard can use, and Space would press the button. -->
+          <svelte:element
+            this={editingName ? 'div' : 'button'}
+            type={editingName ? undefined : 'button'}
+            role={editingName ? 'group' : undefined}
             aria-current={index === selected}
             use:selectOnMouseMove={() => {
               selected = index
               moved = true
             }}
-            onclick={() => open(choice)}
-            oncontextmenu={(event) => pick(choice, event)}
+            onclick={editingName ? undefined : () => open(choice)}
+            oncontextmenu={(event: MouseEvent) => pick(choice, event)}
             class="flex w-full items-center gap-2.5 rounded-lg glass-control px-2.5 py-2 text-left {choice.bookmarkUrl
               ? 'pr-9'
               : ''}"
@@ -1075,12 +1146,34 @@
                 aria-hidden="true"
               ></span>
             {/if}
-            <span class="min-w-0 flex-1 truncate text-xs text-ink-100">{choice.label}</span>
-            {#if choice.detail}
+            {#if editingName && renaming}
+              <input
+                bind:value={renaming.value}
+                use:focusAndSelect
+                aria-label="Bookmark name"
+                spellcheck="false"
+                autocomplete="off"
+                onkeydown={(event) => {
+                  if (event.isComposing) return
+                  if (event.key === 'Enter' || event.key === 'Escape') {
+                    event.preventDefault()
+                    // The edit ends here, so the window's handler would find no edit
+                    // left to defer to and Enter would take the row. It is not for it.
+                    event.stopPropagation()
+                    endRename(event.key === 'Enter')
+                  }
+                }}
+                onblur={() => endRename(true)}
+                class="min-w-0 flex-1 bg-transparent text-xs text-ink-100 outline-none select-text"
+              />
+            {:else}
+              <span class="min-w-0 flex-1 truncate text-xs text-ink-100">{choice.label}</span>
+            {/if}
+            {#if choice.detail && !editingName}
               <span class="max-w-[40%] truncate text-[0.6875rem] text-ink-500">{choice.detail}</span
               >
             {/if}
-          </button>
+          </svelte:element>
 
           {#if choice.bookmarkUrl}
             {@const url = choice.bookmarkUrl}
