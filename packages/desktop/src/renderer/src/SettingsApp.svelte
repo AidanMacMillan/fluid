@@ -153,7 +153,7 @@
   <!-- The title scrolls with its section rather than pinning to the top: the
        nav already says which section is open, so a bar repeating it is a line of
        chrome held over content that needs the room. -->
-  <section role="tabpanel" class="min-h-0 flex-1 overflow-y-auto p-4">
+  <section role="tabpanel" class="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4">
     <h1 class="pb-3 text-xs font-semibold text-ink-200">{heading}</h1>
 
     {#if current.id === 'extensions'}
