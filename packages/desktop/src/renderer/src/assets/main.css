@@ -241,7 +241,7 @@ html[data-resize='grow'] {
    With tabs above it, it is a hairline with room around it. With none it has no
    box at all: the empty section takes no space, so a task with nothing pinned
    looks like a plain list. What is left of it is a line hung off its position,
-   painted only while a drag could land there.
+   painted only while letting go would land there.
 
    Nothing here changes any box's size, in either state. The sidebar cannot
    afford it: a column that grew a row when a drag began would shift every row
@@ -276,12 +276,6 @@ html[data-resize='grow'] {
       transition:
         background-color 120ms ease,
         box-shadow 120ms ease;
-    }
-
-    /* A tab that could be pinned is in the air: the section says where it is.
-       Dim enough to read as an invitation rather than as a thing already there. */
-    &.offering::before {
-      background-color: --alpha(var(--color-white) / 25%);
     }
 
     /* Letting go now would land here. The drop line's own marker, so that
