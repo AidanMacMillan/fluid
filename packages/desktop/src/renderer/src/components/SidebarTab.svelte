@@ -182,7 +182,7 @@
 <li
   style:opacity={covered ? 0 : undefined}
   data-sidebar-item={tab.id}
-  class="group/row relative press-scale before:absolute before:inset-x-0 before:-top-0.5 before:h-0.5 {dragging
+  class="group/row relative press-scale hover-through before:absolute before:inset-x-0 before:-top-0.5 before:h-0.5 {dragging
     ? 'opacity-40'
     : ''}"
   style:padding-left="calc({compact || card ? 0 : row.depth} * var(--sidebar-indent))"

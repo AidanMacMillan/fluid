@@ -172,6 +172,20 @@ html[data-resize='grow'] {
   }
 }
 
+/* A task or tab staying lit while the pointer is on one of the buttons laid
+   over its edge — the close button above all. Those are siblings of the tab's
+   own button, not inside it, so its `:hover` lets go the moment the pointer
+   crosses onto them; this hands it back from the wrapper. Lit the way
+   `glass-control` and `hover:text-ink-200` light it, and left alone while it is
+   selected or pressed, which have looks of their own. Hover only: pressing a
+   button on the edge does not press the tab (see `press-scale`). */
+@utility hover-through {
+  &:hover > button[draggable='true']:not(:active, [aria-selected='true'], [aria-current]) {
+    background-color: --alpha(var(--theme-glow) / 8%);
+    color: var(--color-ink-200);
+  }
+}
+
 /* The room between two panes of a split, and the handle that resizes them. The
    gap is the well showing through, which is invisible between two chrome bars
    — both are drawn on the same ground — so a hairline down the middle is what
