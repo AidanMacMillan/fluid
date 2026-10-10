@@ -162,6 +162,15 @@ that take no text can omit it or set it to `false`. Multiline input is also
 available as a web search. Shift+Enter inserts a line break, Enter submits, and
 Alt+Up/Down selects results while ordinary arrows edit multiline text.
 
+Every launcher and new-task row is ranked by a score from 0 to 1 for what has
+been typed: 0 hides the row, 0.5 is where the web search sits, and anything
+above it goes over the search. Give a row a `relevance` rule to decide for
+itself, built from the facts `analyseQuery` reads out of the text (a question,
+natural language, shell syntax, flags, an address) with `rules` and `when`;
+answering `null` falls back to matching the row's name and keywords. The
+terminal's rules in [commands.ts](../../extensions/terminal/src/renderer/commands.ts)
+are a worked example, and [relevance.ts](src/relevance.ts) documents the scale.
+
 Package-specific development notes:
 [Claude Code](../../extensions/claude-code/README.md) ·
 [Terminal](../../extensions/terminal/README.md) ·

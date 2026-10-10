@@ -1,6 +1,7 @@
 import type { NewTab } from './api'
 import type { Client } from './client'
 import type { Tab, TaskFact } from './models'
+import type { Relevance } from './relevance'
 import type { TaskColor, TaskIcon } from './task-icons'
 
 /**
@@ -113,6 +114,18 @@ export type LauncherRow = {
   /** An Iconify class. */
   icon: string
   keywords?: string[]
+  /**
+   * How sure the row is that it is what was typed for, from 0 (not at all:
+   * hidden) to 1 (certainly: the top of the panel) — see ./relevance.ts for
+   * the scale, and `rules` and `when` for writing one. Answering null, or
+   * leaving this out, scores the row the default way: by its name and
+   * `keywords` for a row anyone might look for, and just under the search for
+   * one offered for any typed text.
+   *
+   * Asked on every keystroke, including the first, before anything is typed,
+   * so it has to be quick and must not throw.
+   */
+  relevance?: Relevance
 }
 
 /** What a new-tab entry has: the row, and the other answers its menu offers. */

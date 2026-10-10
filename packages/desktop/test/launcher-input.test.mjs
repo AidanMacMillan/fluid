@@ -16,7 +16,7 @@ function load(path, dependencies = {}) {
   return exports
 }
 
-const sdk = load('../../sdk/src/renderer.ts')
+const sdk = { ...load('../../sdk/src/renderer.ts'), ...load('../../sdk/src/relevance.ts') }
 const urls = load('../src/renderer/src/lib/urls.ts')
 const search = load('../src/renderer/src/lib/search.ts')
 const { createAgentRenderer } = load('../../agent-core/src/renderer/index.ts', {
@@ -24,7 +24,8 @@ const { createAgentRenderer } = load('../../agent-core/src/renderer/index.ts', {
 })
 const terminal = load('../../../extensions/terminal/src/renderer/index.ts', {
   '@fluid/sdk': sdk,
-  '../shared/tab': { TERMINAL_TAB: 'terminal.shell' }
+  '../shared/tab': { TERMINAL_TAB: 'terminal.shell' },
+  './commands': load('../../../extensions/terminal/src/renderer/commands.ts')
 }).default
 
 // Compile the launcher's actual state and event handlers with Svelte's runes.
@@ -42,7 +43,7 @@ const body = ast.statements
   .replaceAll('$effect(', 'ignoreEffect(')
 const wrapped = `export function createLauncher(dependencies) {
   const { window, location, document, extensions, asksForInput, forTypedText,
-    launcherDetail, displayUrl, isMultiline, looksLikeUrl, resolveInput, searchUrl,
+    launcherDetail, analyseQuery, matchScore, scoreRow, displayUrl, isMultiline, looksLikeUrl, resolveInput, searchUrl,
     matchesQuery, INCOGNITO_PROFILE_ID } = dependencies;
   const ignoreEffect = () => {};
   ${body}
@@ -168,7 +169,7 @@ test('single-line behavior returns after removing the last newline', () => {
   assert.equal(launcher.choices[0].key, 'search')
   launcher.setQuery('https://example.com')
   assert.equal(launcher.choices[0].key, 'open')
-  assert.ok(launcher.choices.some((choice) => choice.key === 'typed:terminal.run'))
+  assert.ok(launcher.choices.some((choice) => choice.key === 'typed:agent.ask'))
   assert.ok(launcher.choices.some((choice) => choice.key === 'bookmark:1'))
   assert.ok(launcher.choices.every((choice) => typeof choice.supportsMultiline === 'boolean'))
 })
@@ -325,4 +326,136 @@ test('URL helpers treat all raw line breaks as search input', () => {
     assert.equal(urls.resolveInput(text), urls.searchUrl(text))
   }
   assert.equal(urls.resolveInput('localhost:3000'), 'http://localhost:3000')
+})
+
+/** The keys of the rows offered for `text`, best first. */
+function rowsFor(text, mode = 'tab') {
+  const { launcher } = setup(mode)
+  launcher.setQuery(text)
+  return launcher.choices.map((choice) => choice.key)
+}
+
+test('a command runs in a terminal, above the search, with no bare terminal beside it', () => {
+  for (const text of [
+    'ls',
+    'ls -la',
+    'cd src',
+    'cd ..',
+    'git status',
+    'pnpm dev',
+    'npm run build',
+    'brew install jq',
+    'docker compose up -d',
+    './scripts/build.sh',
+    '~/bin/tool --flag',
+    'cat package.json | jq .name',
+    'NODE_ENV=production node server.js',
+    'mytool --help',
+    'make build/app.o',
+    'find . -name "*.ts"',
+    'git commit -m "Fix the thing"'
+  ]) {
+    const keys = rowsFor(text)
+    assert.equal(keys[0], 'typed:terminal.run', text)
+    assert.ok(keys.includes('search'), text)
+    assert.equal(keys.includes('action:terminal.shell'), false, text)
+  }
+})
+
+test('a row matches by the starts of its words, not by letters inside them', () => {
+  const editor = {
+    id: 'editor',
+    label: 'Editor',
+    icon: 'editor-icon',
+    keywords: ['elsewhere', 'command line'],
+    open: async () => ({ type: 'editor.tab', title: null, payload: {} })
+  }
+  const offered = (text) => {
+    const { launcher } = setup('tab', [{ id: 'ext', launcher: [editor] }])
+    launcher.setQuery(text)
+    return launcher.choices.some((choice) => choice.key === 'action:ext.editor')
+  }
+  assert.equal(offered('ls'), false)
+  assert.equal(offered('else'), true)
+  assert.equal(offered('line'), true)
+  assert.equal(offered('dit'), false)
+  assert.ok(rowsFor('exa').includes('bookmark:1'))
+})
+
+test('language never offers to run in a terminal', () => {
+  for (const text of [
+    'How do I list files?',
+    'how do i list files in a folder',
+    'What is the capital of France',
+    'Fix the sidebar drop line',
+    'make a website for my bakery',
+    'open the pod bay doors',
+    'find a good restaurant nearby',
+    'is it going to rain tomorrow',
+    'Ls the folder',
+    'react hooks',
+    'weather',
+    'example.com',
+    'https://example.com/a?b=c'
+  ]) {
+    assert.equal(rowsFor(text).includes('typed:terminal.run'), false, text)
+  }
+})
+
+test('looking for the terminal finds it at the top, and offers nothing to run', () => {
+  for (const text of ['terminal', 'Terminal', 'shell', 'zsh', 'bash']) {
+    const keys = rowsFor(text)
+    assert.equal(keys[0], 'action:terminal.shell', text)
+    assert.equal(keys.includes('typed:terminal.run'), false, text)
+  }
+  // Part of the name is still the terminal, but not surer than a search.
+  assert.ok(rowsFor('termi').includes('action:terminal.shell'))
+})
+
+test('a long instruction goes to an agent first; a question stays a search', () => {
+  assert.equal(
+    rowsFor('refactor the sidebar so the drop line only shows when valid')[0],
+    'typed:agent.ask'
+  )
+  assert.equal(rowsFor('How do I center a div?')[0], 'search')
+  assert.equal(rowsFor('ls -la').at(-1), 'typed:agent.ask')
+})
+
+test('the task panel ranks the same way', () => {
+  for (const text of ['ls -la', 'terminal', 'How do I list files?']) {
+    assert.deepEqual(rowsFor(text, 'task'), rowsFor(text, 'tab'))
+  }
+})
+
+test("an entry's own rule can hide it, raise it, or leave it to the name match", () => {
+  const rows = (score) => [
+    {
+      id: 'thing',
+      label: 'Thing',
+      icon: 'thing-icon',
+      relevance: () => score,
+      open: async () => ({ type: 'thing.tab', title: null, payload: {} })
+    }
+  ]
+  const offered = (score, text) => {
+    const { launcher } = setup('tab', [{ id: 'ext', launcher: rows(score) }])
+    launcher.setQuery(text)
+    return launcher.choices.map((choice) => choice.key)
+  }
+  assert.equal(offered(0, '').includes('action:ext.thing'), false)
+  assert.equal(offered(1, 'anything at all')[0], 'action:ext.thing')
+  assert.equal(offered(2, 'anything')[0], 'action:ext.thing')
+  assert.equal(offered(null, 'nothing like it').includes('action:ext.thing'), false)
+  assert.ok(offered(null, 'thi').includes('action:ext.thing'))
+})
+
+test('rules: the first rule with an opinion decides', () => {
+  const rule = sdk.rules(
+    sdk.when((query) => query.naturalLanguage, 0),
+    sdk.when((query) => query.head === 'git', 0.9)
+  )
+  const score = (text) => rule(sdk.analyseQuery(text), { projectRoot: null })
+  assert.equal(score('Why is git slow?'), 0)
+  assert.equal(score('git log'), 0.9)
+  assert.equal(score('svn log'), null)
 })
