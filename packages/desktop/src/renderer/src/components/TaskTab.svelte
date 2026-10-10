@@ -188,7 +188,7 @@
     </button>
     {#if activity}
       <span
-        class="pointer-events-none absolute top-0.5 right-0.5 size-1.5 rounded-full {ACTIVITY_DOT[
+        class="pointer-events-none absolute top-0.5 right-0.5 size-2 rounded-full {ACTIVITY_DOT[
           activity
         ]}"
         aria-hidden="true"
@@ -215,8 +215,8 @@
       ondragend={() => reorder.end()}
       onclick={() => void workspace.selectTask(task.id)}
       ondblclick={startRenaming}
-      class="relative flex h-7 w-full items-center rounded-md glass-control py-1 pr-7 pl-7 text-xs
-             font-medium no-drag
+      class="relative flex h-7 w-full items-center rounded-md glass-control py-1 pl-7 text-xs
+             font-medium no-drag {activity ? 'pr-7 group-hover/tab:pr-10' : 'pr-7'}
              {selected ? 'text-ink-50' : 'text-ink-400 hover:text-ink-200'}"
     >
       {#if !selected}
@@ -235,11 +235,12 @@
              group-hover/tab:opacity-100 focus-visible:opacity-100"
       onclick={() => void workspace.closeTask(task.id)}
     />
-    <!-- In the close button's slot, giving way to it, as a tab's row does. -->
+    <!-- In the close button's slot until the button appears, then stepped
+         aside to its left, as a tab's row does. -->
     {#if activity}
       <span
         class="pointer-events-none absolute top-1/2 right-2.5 size-2 -translate-y-1/2 rounded-full
-               group-hover/tab:opacity-0 peer-focus-visible/close:opacity-0 {ACTIVITY_DOT[
+               group-hover/tab:right-7 peer-focus-visible/close:right-7 {ACTIVITY_DOT[
           activity
         ]}"
         aria-hidden="true"
