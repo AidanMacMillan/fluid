@@ -40,10 +40,19 @@ mac:
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
-    - NSCameraUsageDescription: Application requests access to the device's camera.
-    - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
-    - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
-    - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
+    NSCameraUsageDescription: Application requests access to the device's camera.
+    NSMicrophoneUsageDescription: Application requests access to the device's microphone.
+    NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
+    NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
+    # What makes the app a candidate for System Settings > Desktop & Dock >
+    # Default web browser: macOS lists an app there only if it declares the
+    # http and https schemes. Links opened from other apps then arrive as
+    # `open-url` events (see src/main/external-links.ts).
+    CFBundleURLTypes:
+      - CFBundleURLName: Web site URL
+        CFBundleURLSchemes:
+          - http
+          - https
   notarize: false
 dmg:
   artifactName: ${productName}-${version}-${arch}.${ext}
@@ -54,6 +63,12 @@ linux:
     - deb
   maintainer: electronjs.org
   category: Utility
+  # Lists the app in the desktop's default-browser choices. The generated
+  # launcher already passes the address (`%U`), which the main process reads out
+  # of argv.
+  mimeTypes:
+    - x-scheme-handler/http
+    - x-scheme-handler/https
 appImage:
   artifactName: ${productName}-${version}.${ext}
 npmRebuild: false

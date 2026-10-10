@@ -20,6 +20,8 @@ import { registerAppSchemes } from './schemes'
 import { registerUserAgent } from './user-agent'
 import { registerApplicationMenu } from './menu'
 import { registerWindowOpener, restoreNotifications } from './notifications'
+import { registerDefaultBrowserIpc } from './default-browser'
+import { linksIn, openExternalLinks, registerExternalLinks } from './external-links'
 import { registerTheme } from './theme'
 import { appIcon } from './app-icon'
 import { registerAutoUpdater } from './updater'
@@ -193,6 +195,11 @@ if (!app.requestSingleInstanceLock()) {
   app.exit(is.dev ? 1 : 0)
 }
 
+// Being a default browser: links opened from other applications arrive here.
+// At module scope because macOS reports the link that launched the app before
+// `ready` (see ./external-links.ts).
+registerExternalLinks(createWindow)
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
@@ -241,6 +248,7 @@ app.whenReady().then(async () => {
   registerApiIpc()
   registerExtensionViewIpc()
   registerInstalledExtensionsIpc()
+  registerDefaultBrowserIpc()
   registerTeardown()
   registerHistoryCapture()
   // Replaces Electron's default menu, whose Cmd+R reloaded this window — the
@@ -281,7 +289,14 @@ app.whenReady().then(async () => {
     if (revealHost() === 'none') createWindow()
   }
   app.on('activate', activateMainWindow)
-  app.on('second-instance', activateMainWindow)
+  // Opening a link while the app is running starts a second instance on
+  // Windows and Linux, which hands over its command line and exits. macOS
+  // never gets here for that: it sends `open-url` to the running app instead.
+  app.on('second-instance', (_event, argv) => {
+    const links = linksIn(argv)
+    if (links.length > 0) openExternalLinks(links)
+    else activateMainWindow()
+  })
 })
 
 // Quit when all windows are closed, except on macOS. There, it's common
