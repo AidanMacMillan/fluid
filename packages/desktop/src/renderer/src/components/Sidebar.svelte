@@ -109,8 +109,6 @@
    * space at all, and a drag only ever paints it.
    */
   const seamIsSection = $derived(pinned.length === 0)
-  /** Whether a drag that could be pinned is in flight, for the seam to say so. */
-  const offering = $derived(reorder.canDropIn('pinned-tab'))
   /** Whether letting go now would land in the pinned section. */
   const aiming = $derived(reorder.target === 'pinned-tab' && reorder.moves)
 
@@ -383,14 +381,13 @@
          With tabs above it, it is the line that says where one section ends.
          With none it is not in the layout at all: a task with nothing pinned
          looks like a plain list, with the new-tab row straight under the title.
-         It is then only where a pin would land — painted while a tab that could
-         be pinned is in the air, and brighter when letting go would pin it, along
-         the top of the new-tab row. The drop itself is taken by everything above
-         that row (see `overHead`), so there is nothing here to aim at. -->
+         It is then only where a pin would land — painted along the top of the
+         new-tab row, and only while letting go would pin the tab. The drop
+         itself is taken by everything above that row (see `overHead`), so there
+         is nothing here to aim at. -->
     <div
       class="pin-seam relative shrink-0"
       class:empty={seamIsSection}
-      class:offering={seamIsSection && offering}
       class:aiming={seamIsSection && aiming}
       aria-hidden="true"
       oncontextmenu={(event) => void openSectionMenu(event, true)}

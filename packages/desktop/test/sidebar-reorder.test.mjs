@@ -21,6 +21,7 @@ const { reorder, moveInStrip } = await import(modulePath)
 after(() => rmSync(directory, { recursive: true, force: true }))
 
 globalThis.window = { api: { haptics: { alignment: () => {} } } }
+globalThis.Node ??= class Node {}
 globalThis.requestAnimationFrame = (callback) => {
   callback()
   return 0
@@ -56,13 +57,32 @@ const item = { kind: 'tab', id: 'source' }
 test('a drag started on a hover card can reorder the host sidebar', () => {
   reorder.end()
   reorder.acceptSidebarDrag(item, 'tab', origin)
-  assert.equal(reorder.canDropIn('tab'), true)
+  assert.equal(reorder.kind, 'tab')
   assert.equal(reorder.carries('source', []), true)
   const slot = { section: 'tab', parentId: null, index: 3 }
   assert.equal(aim(slot).defaultPrevented, true)
   assert.equal(reorder.moves, true)
   assert.deepEqual(reorder.resolveInSidebar(event(), 'tab'), { item, slot })
   assert.equal(reorder.kind, null)
+})
+
+test('a drag marks no drop until the pointer is over a slot it could land in', () => {
+  reorder.end()
+  reorder.acceptSidebarDrag(item, 'tab', origin)
+  assert.equal(reorder.moves, false)
+  assert.equal(reorder.landsAtEnd('pinned-tab'), false)
+  assert.equal(reorder.landsAtEnd('tab'), false)
+  reorder.aim(
+    event(),
+    { section: 'pinned-tab', parentId: null, index: 0 },
+    { kind: 'end', section: 'pinned-tab' },
+    []
+  )
+  assert.equal(reorder.landsAtEnd('pinned-tab'), true)
+  reorder.leave({ currentTarget: { contains: () => false }, relatedTarget: null })
+  assert.equal(reorder.landsAtEnd('pinned-tab'), false)
+  assert.equal(reorder.moves, false)
+  reorder.end()
 })
 
 test('hover-card drags keep no-op detection and can cross pinned sections or folders', () => {
@@ -98,7 +118,7 @@ test('folder drags preserve descendant protection and clear completely on cancel
   reorder.acceptSidebarDrag(item, 'tab', origin)
   aim(slot)
   reorder.acceptSidebarDrag(null, 'tab', null)
-  assert.equal(reorder.canDropIn('tab'), false)
+  assert.equal(reorder.kind, null)
   assert.equal(reorder.dimmed, null)
   assert.equal(reorder.slot, null)
   assert.equal(reorder.resolveInSidebar(event(), 'tab'), null)

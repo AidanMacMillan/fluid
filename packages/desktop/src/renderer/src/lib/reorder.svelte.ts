@@ -131,24 +131,9 @@ class Reorder {
    * tab with an address to come home to can join the pinned ones.
    *
    * Deliberately not reactive: it is read while answering drag events and never
-   * while drawing, and what it would redraw is the very thing `offered` exists
-   * to hold back a frame.
+   * while drawing.
    */
   private into: readonly ReorderKind[] = []
-  /**
-   * The same answer a frame later, for the lists that show a drag they could
-   * take. Held back for the reason `dimmed` is: nothing a list draws for a drag
-   * is worth touching in the moment the platform is still setting that drag up,
-   * and a frame is all it takes to be clear of it. A drop target can only be
-   * reached long after.
-   *
-   * What a list may draw with it is a colour, never a size. A column that grew
-   * while a drag began would shift every row under the pointer, and a drag
-   * whose source is disturbed then is abandoned outright — so the sidebar keeps
-   * its empty pinned section in the layout at all times and only paints it (see
-   * `pin-seam`), which is also what keeps the list from jittering.
-   */
-  private offered = $state<readonly ReorderKind[]>([])
   /**
    * The list the pointer is over now, which for a drag that can cross is not
    * always the one it started in. This is what decides where the drop line is
@@ -236,12 +221,10 @@ class Reorder {
     // Everything the drag changes on screen waits a frame. The browser
     // snapshots the element for the drag image once this handler returns, so
     // dimming the source now would make the thing under the cursor a ghost of a
-    // ghost — and disturbing the layout around it now loses the drag altogether
-    // (see `offered`).
+    // ghost — and disturbing the layout around it now loses the drag altogether.
     requestAnimationFrame(() => {
       if (this.kind !== kind) return
       this.dimmed = id
-      this.offered = into
       // Only a tab can be split: the page area lays its glass for a tab alone.
       if ((kind === 'tab' || kind === 'pinned-tab') && this.carrying?.kind !== 'folder') {
         this.tab = id
@@ -349,16 +332,6 @@ class Reorder {
   carries(id: string, within: readonly string[]): boolean {
     const dimmed = this.dimmed
     return dimmed !== null && (dimmed === id || within.includes(dimmed))
-  }
-
-  /**
-   * Whether the drag in flight could be let go in this list. What a list reads
-   * to show that it would take the drag: the sidebar's pinned section is empty
-   * for most tasks, and an empty section that said nothing would be a place
-   * nobody could know to drop a tab.
-   */
-  canDropIn(kind: ReorderKind): boolean {
-    return this.offered.includes(kind)
   }
 
   /**
@@ -479,7 +452,6 @@ class Reorder {
     this.kind = section
     this.origin = origin
     this.into = ['tab', 'pinned-tab']
-    this.offered = this.into
     this.dimmed = item.id
     this.tab = item.kind === 'tab' ? item.id : null
   }
@@ -535,7 +507,6 @@ class Reorder {
     this.kind = null
     this.intoTask = null
     this.into = []
-    this.offered = []
     this.target = null
     this.from = -1
     this.to = -1
