@@ -155,6 +155,23 @@ html[data-resize='grow'] {
   box-shadow: 0 0 6px --alpha(var(--theme-marker) / 45%);
 }
 
+/* A task or tab giving under the pointer while it is held down, so the click
+   is felt as well as seen. Put on the wrapper rather than the button, so the
+   close and icon buttons layered over the tab's edges sink with it — but only
+   the tab's own (draggable) button pressing it, not those buttons or the
+   rename field. */
+@utility press-scale {
+  transition: transform 120ms var(--ease-glide);
+
+  &:has(> button[draggable='true']:active) {
+    transform: scale(0.985);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
 /* The room between two panes of a split, and the handle that resizes them. The
    gap is the well showing through, which is invisible between two chrome bars
    — both are drawn on the same ground — so a hairline down the middle is what
