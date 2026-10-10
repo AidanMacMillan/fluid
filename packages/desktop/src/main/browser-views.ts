@@ -326,6 +326,13 @@ const views = new Map<string, WebContentsView>()
 const pendingAudioMuted = new Set<string>()
 
 /**
+ * tab id → the address a pinned tab is pinned to. Told to us by the renderer,
+ * which owns the pin; kept apart from the views so it holds before a tab's
+ * first view exists and across the view being rebuilt.
+ */
+const pinnedHomes = new Map<string, string>()
+
+/**
  * How long a tab keeps reporting itself audible after its sound stops. A short
  * effect would otherwise show the mute control only while it plays, leaving no
  * time to reach it.
@@ -1406,6 +1413,7 @@ function createView(
   // `window.open` and target=_blank: a tab for navigation, a real window for a
   // popup something is waiting on, the OS for anything it cannot render.
   webContents.setWindowOpenHandler((details) => handleWindowOpen(tabId, window, details))
+  if (kind === 'page') keepOnPinnedHost(webContents, tabId, context.profile)
   // Never a miniplayer: those are windows of the miniplayer's own making, which
   // Electron does not announce here (see `openMiniplayerWindow`).
   webContents.on('did-create-window', (popup) => adoptPopup(tabId, window, popup))
@@ -2010,6 +2018,69 @@ export function isAudioMuted(tabId: string): boolean {
   return view && !view.webContents.isDestroyed()
     ? view.webContents.isAudioMuted()
     : pendingAudioMuted.has(tabId)
+}
+
+/** Records where a pinned tab lives, or clears it for a tab that is not pinned. */
+export function setPinnedHome(tabId: string, url: string | null): void {
+  if (url === null) pinnedHomes.delete(tabId)
+  else pinnedHomes.set(tabId, url)
+}
+
+/** The host of an address, or null when it has none or cannot be parsed. */
+function hostOf(url: string): string | null {
+  try {
+    return new URL(url).hostname.toLowerCase() || null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Keeps a pinned tab on the site it is pinned to. A link out of it to another
+ * host — subdomain included — opens a tab of its own instead, the way a
+ * pinned tab behaves in Arc, so the pin stays the thing it was pinned for.
+ *
+ * Only what the page itself starts is caught: `will-navigate` is not emitted
+ * for the app's own `loadURL`, so the address bar and "return to pinned page"
+ * go where they are told. Pages on the host the tab is showing now are free to
+ * move within it, which keeps a tab that was already somewhere else from having
+ * every link on it turned into a new tab.
+ *
+ * A redirect is caught too, but only one that follows such a navigation. A
+ * link is often not the address it ends up at — a search result goes through
+ * the search site's own `/url?…` first — so the first hop is on-site and the
+ * way off is the redirect behind it. A redirect during the tab's own load is
+ * left alone, because that is a page sending the user to sign in and back.
+ */
+function keepOnPinnedHost(webContents: WebContents, tabId: string, profile: number | null): void {
+  /** A navigation the page started is in flight and has not landed yet. */
+  let followingLink = false
+
+  const leavesSite = (target: string): boolean => {
+    const home = pinnedHomes.get(tabId)
+    if (home === undefined || !isWebAddress(target)) return false
+    const host = hostOf(target)
+    return host !== null && host !== hostOf(home) && host !== hostOf(webContents.getURL())
+  }
+
+  webContents.on('will-navigate', (event, target) => {
+    if (leavesSite(target)) {
+      event.preventDefault()
+      openLinkFrom(tabId)(target, profile)
+      return
+    }
+    followingLink = true
+  })
+  webContents.on('will-redirect', (event) => {
+    if (!followingLink || !event.isMainFrame || !leavesSite(event.url)) return
+    event.preventDefault()
+    followingLink = false
+    openLinkFrom(tabId)(event.url, profile)
+  })
+  // However the navigation ends, the next one starts from scratch.
+  webContents.on('did-stop-loading', () => {
+    followingLink = false
+  })
 }
 
 /** Mutes only this tab, including before loading or while in the background. */

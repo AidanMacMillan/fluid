@@ -60,6 +60,15 @@
   // user's real browser, which holds none of the session it was signed in to.
   $effect(() => window.api.browser.onOpenTab((request) => void workspace.openRequestedTab(request)))
 
+  // A pinned tab stays on the site it is pinned to; the main process turns a
+  // link out of it into a tab, and needs to be told which tabs are pinned where.
+  $effect(() => {
+    for (const tab of workspace.tabs) {
+      if (tab.type !== 'browser') continue
+      window.api.browser.setPinnedHome(tab.id, tab.pinned ? tab.pinnedUrl : null)
+    }
+  })
+
   // The launcher is a window of its own, so what it settles on comes back
   // across the bridge rather than up through the tree. The choice is all it
   // knows; which task the tab joins, or which project the task, is decided here.

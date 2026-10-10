@@ -282,6 +282,12 @@ const api = {
     reload: (tabId: string): void => ipcRenderer.send('browser:reload', tabId),
     /** Toggles the tab's audio without selecting or focusing it. */
     toggleAudioMuted: (tabId: string): void => ipcRenderer.send('browser:toggleAudioMuted', tabId),
+    /**
+     * Tells the main process where a pinned tab is pinned to (null when it is
+     * not pinned), so a link out of that site opens a tab of its own.
+     */
+    setPinnedHome: (tabId: string, url: string | null): void =>
+      ipcRenderer.send('browser:setPinnedHome', tabId, url),
     /** Sends a tab's page to an address typed into the chrome's address bar. */
     navigate: (tabId: string, url: string): void =>
       ipcRenderer.send('browser:navigate', tabId, url),

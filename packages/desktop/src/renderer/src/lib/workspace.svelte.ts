@@ -1374,40 +1374,45 @@ class Workspace {
   }
 
   /**
-   * Closes a pinned tab without unpinning it. The page is torn down and the row
-   * goes back to pointing at the address it is pinned to, so clicking it again
-   * opens the pinned page fresh rather than wherever the tab had got to.
+   * Whether following `url` from a pinned tab would take it off its site, so
+   * that it belongs in a tab of its own instead. Hosts are compared whole —
+   * a subdomain is another site — and the host the tab is showing now counts as
+   * home as well as the pinned one, so a tab that was already elsewhere is not
+   * made unable to move around where it is. The main process applies the same
+   * rule to links the page itself follows.
+   */
+  leavesPinnedSite(tab: Tab, url: string): boolean {
+    if (!tab.pinned || tab.type !== 'browser' || tab.pinnedUrl === null) return false
+    const host = exactHostOf(url)
+    if (host === null) return false
+    const here = this.pages[tab.id]?.url || tab.payload.url
+    return host !== exactHostOf(tab.pinnedUrl) && host !== exactHostOf(here)
+  }
+
+  /**
+   * Sends a pinned tab back to the address it is pinned to. The tab is kept —
+   * and stays focused if it was — so this reads as the tab going home rather
+   * than as a close.
    *
    * This is the whole of what pinning buys over an ordinary tab, and it is why
    * the row offers this instead of a close once it has wandered: the tab you
    * would be throwing away is the one thing the task was opened for.
    */
   async releasePinnedTab(id: string): Promise<void> {
-    const taskId = this.activeTaskId
     const tab = this.tabs.find((candidate) => candidate.id === id)
-    // Only a browser tab can be released: this undoes a wander, and nothing
+    // Only a browser tab can be sent home: this undoes a wander, and nothing
     // else that can be pinned is able to wander. The row never offers it for
     // anything else (see `onPinnedPage`), so this is the belt to that braces.
-    if (!taskId || tab?.type !== 'browser' || tab.pinnedUrl === null) return
-
-    api.browser.destroy(id)
-    delete this.pages[id]
+    if (tab?.type !== 'browser' || tab.pinnedUrl === null) return
 
     // The stored title and icon go with the page: they describe wherever the
-    // tab wandered to, not the page it is about to open on. What the row falls
-    // back to is the tab's own title, which pinned tabs are given.
+    // tab wandered to, not the page it is returning to. What the row falls
+    // back to is the tab's own title, which pinned tabs are given. The payload
+    // as well as the live view, because a tab with no view yet opens on it.
     const payload: BrowserTabPayload = { url: tab.pinnedUrl }
     tab.payload = payload
-    await fluid.tabs.update({ id: id, payload })
-
-    // A closed tab is not the one you are looking at, so focus leaves it the
-    // way it leaves a tab that is really closed — right, then left. The row
-    // stays where it is; it is the page that went.
-    if (this.activeTabId !== id) return
-    const index = this.tabs.findIndex((candidate) => candidate.id === id)
-    const next = this.tabs[index + 1] ?? this.tabs[index - 1] ?? null
-    const task = await fluid.tasks.setActiveTab({ id: taskId, tabId: next?.id ?? null })
-    if (task) this.replaceTask(task)
+    api.browser.navigate(id, tab.pinnedUrl)
+    await fluid.tabs.update({ id, payload })
   }
 
   /**
@@ -1800,6 +1805,14 @@ function bareAddress(url: string): string {
     return `${origin}${pathname.replace(/\/$/, '')}${search}`
   } catch {
     return url
+  }
+}
+
+function exactHostOf(url: string): string | null {
+  try {
+    return new URL(url).hostname.toLowerCase() || null
+  } catch {
+    return null
   }
 }
 

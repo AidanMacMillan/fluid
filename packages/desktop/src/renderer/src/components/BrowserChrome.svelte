@@ -190,6 +190,18 @@
 
   function commit(): void {
     const target = resolveInput(draft, searchEngines.current)
+    // A pinned tab stays on its site: an address on another one gets a tab of
+    // its own, and this one is left exactly as it was.
+    if (target && isWebAddress(target) && workspace.leavesPinnedSite(tab, target)) {
+      stopEditing()
+      void workspace.openRequestedTab({
+        sourceTabId: tab.id,
+        url: target,
+        background: false,
+        profile: tab.profile
+      })
+      return
+    }
     if (target && isWebAddress(target)) {
       submitted = { tabId: tab.id, url: target, previousUrl: url, started: false }
     }
