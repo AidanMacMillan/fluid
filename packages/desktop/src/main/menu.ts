@@ -5,7 +5,6 @@ import {
   type MenuItemConstructorOptions,
   type WebContents
 } from 'electron'
-import { is } from '@electron-toolkit/utils'
 import {
   copyAddress,
   findAgain,
@@ -61,6 +60,12 @@ function pageItem(
       if (page) act(page)
     }
   }
+}
+
+/** Docked in the page's own view, with the frontend's resize handle and close button. */
+function toggleDevTools(page: WebContents): void {
+  if (page.isDevToolsOpened()) page.closeDevTools()
+  else page.openDevTools({ mode: 'right' })
 }
 
 /**
@@ -378,10 +383,22 @@ export function registerApplicationMenu(): void {
         pageItem('Actual Size', 'CmdOrCtrl+0', resetZoom),
         { type: 'separator' },
         { role: 'togglefullscreen' },
-        // Dev only, like the context menu's Inspect Element: a tool, not a
-        // feature. `watchWindowShortcuts` blocks the key form in production,
-        // and an item that outlived it would be the one way back in.
-        ...(is.dev ? ([{ role: 'toggleDevTools' }] satisfies MenuItemConstructorOptions[]) : [])
+        { type: 'separator' },
+        // The page's, docked in its view. The `toggleDevTools` role acts on the
+        // focused *window*, which is the app's own interface, and
+        // `watchWindowShortcuts` only hears keys the interface itself gets —
+        // a page is a native view above it that takes them first, so neither
+        // ever reached the page in front. The menu's accelerators do, which is
+        // how Reload works. F12 is the other key everyone reaches for outside
+        // macOS; hidden, for the same reason as the second Zoom In.
+        pageItem(
+          'Developer Tools',
+          process.platform === 'darwin' ? 'Alt+Cmd+I' : 'Ctrl+Shift+I',
+          toggleDevTools
+        ),
+        ...(process.platform === 'darwin'
+          ? []
+          : [{ ...pageItem('Developer Tools', 'F12', toggleDevTools), visible: false }])
       ]
     },
     {
