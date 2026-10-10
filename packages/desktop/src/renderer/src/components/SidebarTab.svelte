@@ -345,7 +345,7 @@
     {#if tab.pinnedUrl !== null && !workspace.onPinnedPage(tab)}
       <IconButton
         icon="icon-[ph--minus]"
-        label="Close {label}, keeping it pinned"
+        label="Return {label} to its pinned page"
         size="sm"
         class="sidebar-close peer/close absolute top-1/2 right-1.5 -translate-y-1/2 {card
           ? 'opacity-100'
